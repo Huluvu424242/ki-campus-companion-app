@@ -36,6 +36,14 @@ class LearningStore {
     await _saveEntries(entries);
   }
 
+  Future<List<LearningEntry>> loadBookmarkedEntries() async {
+    final entries = await loadEntries();
+    final bookmarks = entries.values.where((entry) => entry.bookmarked).toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+    return bookmarks;
+  }
+
   Future<String> exportMarkdown() async {
     final entries = await loadEntries();
     final sortedEntries = entries.values.toList()

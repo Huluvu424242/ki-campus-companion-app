@@ -166,8 +166,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
   }
 
   Future<void> _openBookmarks() async {
-    final bookmarks = _entries.values.where((entry) => entry.bookmarked).toList()
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final bookmarks = await _store.loadBookmarkedEntries();
 
     await showModalBottomSheet<void>(
       context: context,
