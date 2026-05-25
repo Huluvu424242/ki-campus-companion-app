@@ -1,38 +1,38 @@
 # KI-Campus Companion MVP
 
-Ein kleines Flutter-Gerüst für eine **persönliche Lern-Companion-App** um KI-Campus/Moodle-Seiten.
+Ein kleines Flutter-MVP für eine **persönliche Lern-Companion-App** rund um KI-Campus/Moodle-Seiten.
 
 Die App verändert **nicht** den KI-Campus selbst. Sie legt eine eigene lokale Schicht darüber:
 
 - WebView für KI-Campus/Moodle
-- Bookmarks pro URL
-- Notizen pro URL
-- lokaler Lernstatus
-- Export als Markdown
-- einfache GitHub-Projektstruktur
-- MIT-Lizenz für eigenen Code
+- lokale Bookmarks pro URL
+- lokale Notizen pro URL
+- lokaler Lernstatus pro URL
+- Bookmark-Liste mit Direktnavigation
+- Markdown-Export über den nativen Teilen-Dialog
 
 ## Ziel des MVP
 
-Dieses MVP soll beweisen, dass eine persönliche Companion-App sinnvoll sein kann, ohne Moodle/H5P/KI-Campus intern zu manipulieren.
+Dieses MVP zeigt, dass eine persönliche Companion-App sinnvoll sein kann, ohne Moodle/H5P/KI-Campus intern zu manipulieren.
 
-```text
-Flutter App
-├── WebView: https://ki-campus.org
-├── lokale Datenhaltung
-│   ├── Bookmarks
-│   ├── Notizen
-│   └── Lernstatus
-└── Overlay / Bottom Sheet
-    ├── Notiz bearbeiten
-    ├── Bookmark setzen
-    ├── Status setzen
-    └── Markdown exportieren
-```
+## Aktueller Funktionsumfang (Ist-Stand)
+
+- Startseite lädt `https://ki-campus.org/` in einer WebView.
+- Top-Bar enthält Navigation (`Zurück`, `Vor`, `Neu laden`) und Ladeindikator.
+- Untere Navigation setzt pro aktueller URL:
+  - Bookmark an/aus
+  - Notiz bearbeiten (Bottom Sheet)
+  - Status `Verstanden`
+  - Status `Wiederholen`
+  - Status `Erledigt`
+- Kontextmenü (`⋮`) bietet:
+  - Bookmark-Übersicht (sortiert nach letzter Änderung)
+  - Markdown-Export aller gespeicherten Einträge
+- Datenhaltung lokal in `SharedPreferences`.
 
 ## Wichtige Grenze
 
-`webview_flutter` unterstützt offiziell Android, iOS und macOS. Für eine echte Web-/GitHub-Pages-Version ist eine andere Strategie nötig, z. B. eine separate Web-App oder iframe-basierte Variante. Dieses Repository ist deshalb zuerst als **Mobile/Desktop-App-Gerüst** gedacht.
+`webview_flutter` unterstützt offiziell Android, iOS und macOS. Für eine echte Web-/GitHub-Pages-Version ist eine andere Strategie nötig (z. B. separate Web-App).
 
 ## Start
 
@@ -47,17 +47,6 @@ Falls Du aus diesem Gerüst ein vollständiges Flutter-Projekt mit Plattformordn
 flutter create .
 flutter pub get
 flutter run
-```
-
-## GitHub
-
-```cmd
-git init
-git add .
-git commit -m "Initial KI-Campus Companion MVP"
-git branch -M main
-git remote add origin https://github.com/DEIN_USER/ki-campus-companion.git
-git push -u origin main
 ```
 
 ## Lizenz
