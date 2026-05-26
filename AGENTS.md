@@ -6,3 +6,4 @@
 - Accessibility ernst nehmen
 - Markdown first
 - MIT Lizenz kompatibel bleiben
+- Unterstützte Plattformen: Windows, Android, Linux
