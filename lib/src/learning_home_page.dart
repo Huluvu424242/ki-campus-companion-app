@@ -67,7 +67,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
                 },
                 onWebResourceError: (error) {
                   final message =
-                      'WebView-Fehler ${error.errorCode} (${error.errorType.name}): ${error.description}';
+                      'WebView-Fehler ${error.errorCode} (${error.errorType?.name ?? 'unknown'}): ${error.description}';
                   debugPrint(message);
                   if (!mounted) return;
                   setState(() {
