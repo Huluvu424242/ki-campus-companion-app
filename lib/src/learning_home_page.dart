@@ -23,13 +23,14 @@ class _LearningHomePageState extends State<LearningHomePage> {
   WebViewController? _controller;
 
   bool get _supportsEmbeddedWebView =>
-      !Platform.isWindows && !Platform.isLinux;
+      Platform.isAndroid || Platform.isWindows || Platform.isLinux;
 
   String _currentUrl = _startUrl.toString();
   String _currentTitle = 'KI-Campus';
   Map<String, LearningEntry> _entries = {};
   bool _isLoading = true;
   double _progress = 0;
+  String? _lastWebError;
 
   LearningEntry get _currentEntry =>
       _entries[_currentUrl] ?? LearningEntry.empty(_currentUrl);
@@ -60,8 +61,19 @@ class _LearningHomePageState extends State<LearningHomePage> {
                     _isLoading = false;
                     _currentUrl = url;
                     _currentTitle = title ?? url;
+                    _lastWebError = null;
                   });
                   await _ensureCurrentEntryTitle();
+                },
+                onWebResourceError: (error) {
+                  final message =
+                      'WebView-Fehler ${error.errorCode} (${error.errorType?.name ?? 'unknown'}): ${error.description}';
+                  debugPrint(message);
+                  if (!mounted) return;
+                  setState(() {
+                    _isLoading = false;
+                    _lastWebError = message;
+                  });
                 },
               ),
             )
@@ -253,7 +265,29 @@ class _LearningHomePageState extends State<LearningHomePage> {
         ),
       ),
       body: _supportsEmbeddedWebView
-          ? _buildWebView()
+          ? Stack(
+              children: [
+                _buildWebView(),
+                if (_lastWebError case final error?)
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Card(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          error,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            )
           : Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
