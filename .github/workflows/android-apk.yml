@@ -36,10 +36,12 @@ jobs:
       - name: Test
         run: flutter test
 
-      - name: Generate Android host project
+      - name: Verify Android host project exists
         run: |
           if [ ! -d android ]; then
-            flutter create --platforms=android --project-name ki_campus_companion .
+            echo "android/ directory missing. This workflow intentionally uses the committed Android project unchanged." >&2
+            echo "Run: flutter create --platforms=android --project-name ki_campus_companion ." >&2
+            exit 1
           fi
 
       - name: Build APK
