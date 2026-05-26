@@ -7,7 +7,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ki_campus_companion/main.dart';
+import 'package:ki_campus_companion/src/app.dart';
 
 void main() {
   testWidgets('App starts and shows title', (WidgetTester tester) async {
