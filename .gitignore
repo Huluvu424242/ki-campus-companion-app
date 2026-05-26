@@ -17,9 +17,5 @@ build/
 Thumbs.db
 
 # Generated platform folders can be recreated with: flutter create .
-android/
 ios/
-linux/
 macos/
-windows/
-web/
