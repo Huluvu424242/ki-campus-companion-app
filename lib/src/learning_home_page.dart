@@ -23,7 +23,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
   WebViewController? _controller;
 
   bool get _supportsEmbeddedWebView =>
-      Platform.isWindows && Platform.isLinux;
+      Platform.isAndroid || Platform.isWindows || Platform.isLinux;
 
   String _currentUrl = _startUrl.toString();
   String _currentTitle = 'KI-Campus';
@@ -67,7 +67,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
                 },
                 onWebResourceError: (error) {
                   final message =
-                      'WebView-Fehler ${error.errorCode} (${error.errorType.name}): ${error.description}';
+                      'WebView-Fehler ${error.errorCode} (${error.errorType?.name ?? 'unknown'}): ${error.description}';
                   debugPrint(message);
                   if (!mounted) return;
                   setState(() {
