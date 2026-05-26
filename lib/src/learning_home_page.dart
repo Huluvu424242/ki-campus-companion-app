@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'learning_entry.dart';
 import 'learning_store.dart';
@@ -19,7 +20,10 @@ class _LearningHomePageState extends State<LearningHomePage> {
   static final Uri _startUrl = Uri.parse('https://ki-campus.org/');
 
   final _store = LearningStore();
-  late final WebViewController _controller;
+  WebViewController? _controller;
+
+  bool get _supportsEmbeddedWebView =>
+      !Platform.isWindows && !Platform.isLinux;
 
   String _currentUrl = _startUrl.toString();
   String _currentTitle = 'KI-Campus';
@@ -35,31 +39,34 @@ class _LearningHomePageState extends State<LearningHomePage> {
     super.initState();
     _loadEntries();
 
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (progress) {
-            setState(() => _progress = progress / 100);
-          },
-          onPageStarted: (url) {
-            setState(() {
-              _isLoading = true;
-              _currentUrl = url;
-            });
-          },
-          onPageFinished: (url) async {
-            final title = await _controller.getTitle();
-            setState(() {
-              _isLoading = false;
-              _currentUrl = url;
-              _currentTitle = title ?? url;
-            });
-            await _ensureCurrentEntryTitle();
-          },
-        ),
-      )
-      ..loadRequest(_startUrl);
+    if (_supportsEmbeddedWebView) {
+      _controller =
+          WebViewController()
+            ..setJavaScriptMode(JavaScriptMode.unrestricted)
+            ..setNavigationDelegate(
+              NavigationDelegate(
+                onProgress: (progress) {
+                  setState(() => _progress = progress / 100);
+                },
+                onPageStarted: (url) {
+                  setState(() {
+                    _isLoading = true;
+                    _currentUrl = url;
+                  });
+                },
+                onPageFinished: (url) async {
+                  final title = await _controller?.getTitle();
+                  setState(() {
+                    _isLoading = false;
+                    _currentUrl = url;
+                    _currentTitle = title ?? url;
+                  });
+                  await _ensureCurrentEntryTitle();
+                },
+              ),
+            )
+            ..loadRequest(_startUrl);
+    }
   }
 
   Future<void> _loadEntries() async {
@@ -166,8 +173,8 @@ class _LearningHomePageState extends State<LearningHomePage> {
   }
 
   Future<void> _openBookmarks() async {
-    final bookmarks = _entries.values.where((entry) => entry.bookmarked).toList()
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final bookmarks = await _store.loadBookmarkedEntries();
+    if (!mounted) return;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -191,7 +198,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
               subtitle: Text(entry.url),
               onTap: () {
                 Navigator.pop(context);
-                _controller.loadRequest(Uri.parse(entry.url));
+                _controller?.loadRequest(Uri.parse(entry.url));
               },
             );
           },
@@ -201,14 +208,16 @@ class _LearningHomePageState extends State<LearningHomePage> {
   }
 
   Future<void> _goBack() async {
-    if (await _controller.canGoBack()) {
-      await _controller.goBack();
+    final controller = _controller;
+    if (controller != null && await controller.canGoBack()) {
+      await controller.goBack();
     }
   }
 
   Future<void> _goForward() async {
-    if (await _controller.canGoForward()) {
-      await _controller.goForward();
+    final controller = _controller;
+    if (controller != null && await controller.canGoForward()) {
+      await controller.goForward();
     }
   }
 
@@ -232,7 +241,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
           ),
           IconButton(
             tooltip: 'Neu laden',
-            onPressed: _controller.reload,
+            onPressed: _controller?.reload,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -243,7 +252,30 @@ class _LearningHomePageState extends State<LearningHomePage> {
               : const SizedBox(height: 3),
         ),
       ),
-      body: WebViewWidget(controller: _controller),
+      body: _supportsEmbeddedWebView
+          ? _buildWebView()
+          : Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.desktop_windows, size: 56),
+                    const SizedBox(height: 12),
+                    Text(
+                      'In dieser Desktop-Version ist derzeit kein eingebetteter WebView verfügbar.',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    SelectableText(
+                      'Bitte öffne die Lernseite im Browser:\n${_startUrl.toString()}',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _statusIndex(entry.status),
         onDestinationSelected: (index) async {
@@ -305,6 +337,20 @@ class _LearningHomePageState extends State<LearningHomePage> {
         ],
       ),
     );
+  }
+
+  Widget _buildWebView() {
+    final controller = _controller!;
+    if (Platform.isAndroid) {
+      return WebViewWidget.fromPlatformCreationParams(
+        params: AndroidWebViewWidgetCreationParams(
+          controller: controller.platform,
+          displayWithHybridComposition: true,
+        ),
+      );
+    }
+
+    return WebViewWidget(controller: controller);
   }
 
   int _statusIndex(LearningStatus status) {
