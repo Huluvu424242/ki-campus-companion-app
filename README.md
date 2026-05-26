@@ -49,6 +49,13 @@ flutter pub get
 flutter run
 ```
 
+Wichtig für Android: Stelle sicher, dass in `android/app/src/main/AndroidManifest.xml` die Netzwerk-Rechte gesetzt sind, sonst lädt die WebView keine Online-Seiten (z. B. Fehler `net::ERR_CACHE_MISS`):
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+```
+
 ## Lizenz
 
 Der eigene Projektcode steht unter MIT. Die verwendeten Flutter-Pakete sind gesondert lizenziert; siehe `docs/LICENSE_CHECK.md`.
