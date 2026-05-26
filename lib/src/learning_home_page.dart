@@ -167,6 +167,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
 
   Future<void> _openBookmarks() async {
     final bookmarks = await _store.loadBookmarkedEntries();
+    if (!mounted) return;
 
     await showModalBottomSheet<void>(
       context: context,
