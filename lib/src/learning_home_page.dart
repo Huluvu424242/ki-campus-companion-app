@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'learning_entry.dart';
 import 'learning_store.dart';
@@ -29,6 +30,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
   Map<String, LearningEntry> _entries = {};
   bool _isLoading = true;
   double _progress = 0;
+  String? _lastWebError;
 
   LearningEntry get _currentEntry =>
       _entries[_currentUrl] ?? LearningEntry.empty(_currentUrl);
@@ -59,8 +61,19 @@ class _LearningHomePageState extends State<LearningHomePage> {
                     _isLoading = false;
                     _currentUrl = url;
                     _currentTitle = title ?? url;
+                    _lastWebError = null;
                   });
                   await _ensureCurrentEntryTitle();
+                },
+                onWebResourceError: (error) {
+                  final message =
+                      'WebView-Fehler ${error.errorCode} (${error.errorType.name}): ${error.description}';
+                  debugPrint(message);
+                  if (!mounted) return;
+                  setState(() {
+                    _isLoading = false;
+                    _lastWebError = message;
+                  });
                 },
               ),
             )
@@ -252,7 +265,29 @@ class _LearningHomePageState extends State<LearningHomePage> {
         ),
       ),
       body: _supportsEmbeddedWebView
-          ? WebViewWidget(controller: _controller!)
+          ? Stack(
+              children: [
+                _buildWebView(),
+                if (_lastWebError case final error?)
+                  Positioned(
+                    left: 12,
+                    right: 12,
+                    bottom: 12,
+                    child: Card(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          error,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onErrorContainer,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            )
           : Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -336,6 +371,20 @@ class _LearningHomePageState extends State<LearningHomePage> {
         ],
       ),
     );
+  }
+
+  Widget _buildWebView() {
+    final controller = _controller!;
+    if (Platform.isAndroid) {
+      return WebViewWidget.fromPlatformCreationParams(
+        params: AndroidWebViewWidgetCreationParams(
+          controller: controller.platform,
+          displayWithHybridComposition: true,
+        ),
+      );
+    }
+
+    return WebViewWidget(controller: controller);
   }
 
   int _statusIndex(LearningStatus status) {
