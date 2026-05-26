@@ -240,7 +240,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
           ),
           IconButton(
             tooltip: 'Neu laden',
-            onPressed: _controller == null ? null : _controller!.reload,
+            onPressed: _controller?.reload,
             icon: const Icon(Icons.refresh),
           ),
         ],
