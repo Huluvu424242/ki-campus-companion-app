@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -31,6 +32,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
   bool _isLoading = true;
   double _progress = 0;
   _WebViewErrorDetails? _lastWebError;
+  int _ignoredWebErrorCount = 0;
 
   LearningEntry get _currentEntry =>
       _entries[_currentUrl] ?? LearningEntry.empty(_currentUrl);
@@ -39,6 +41,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
   void initState() {
     super.initState();
     _loadEntries();
+    _loadIgnoredWebErrorCount();
 
     if (_supportsEmbeddedWebView) {
       _controller =
@@ -72,12 +75,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
                     fallbackUrl: _currentUrl,
                     stackTrace: StackTrace.current,
                   );
-                  debugPrint(details.fullText);
-                  if (!mounted) return;
-                  setState(() {
-                    _isLoading = false;
-                    _lastWebError = details;
-                  });
+                  unawaited(_handleWebResourceError(details));
                 },
               ),
             )
@@ -87,7 +85,24 @@ class _LearningHomePageState extends State<LearningHomePage> {
 
   Future<void> _loadEntries() async {
     final entries = await _store.loadEntries();
+    if (!mounted) return;
     setState(() => _entries = entries);
+  }
+
+  Future<void> _loadIgnoredWebErrorCount() async {
+    final ignoredErrors = await _store.loadIgnoredWebErrors();
+    if (!mounted) return;
+    setState(() => _ignoredWebErrorCount = ignoredErrors.length);
+  }
+
+  Future<void> _handleWebResourceError(_WebViewErrorDetails details) async {
+    debugPrint(details.fullText);
+    final isIgnored = await _store.isWebErrorIgnored(details.ignoreRule);
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _lastWebError = isIgnored ? null : details;
+    });
   }
 
   Future<void> _ensureCurrentEntryTitle() async {
@@ -139,7 +154,10 @@ class _LearningHomePageState extends State<LearningHomePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(_currentTitle, style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                _currentTitle,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: noteController,
@@ -185,6 +203,31 @@ class _LearningHomePageState extends State<LearningHomePage> {
       [XFile(file.path, mimeType: 'text/markdown')],
       subject: 'KI-Campus Companion Export',
       text: 'Markdown-Export aus der KI-Campus Companion App',
+    );
+  }
+
+  Future<void> _ignoreWebError(_WebViewErrorDetails error) async {
+    await _store.saveIgnoredWebError(error.ignoreRule);
+    await _loadIgnoredWebErrorCount();
+    if (!mounted) return;
+    setState(() => _lastWebError = null);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Gleichartige WebView-Fehler werden dauerhaft ignoriert.',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _resetIgnoredWebErrors() async {
+    await _store.clearIgnoredWebErrors();
+    await _loadIgnoredWebErrorCount();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ignorierte WebView-Fehler werden wieder angezeigt.'),
+      ),
     );
   }
 
@@ -281,11 +324,21 @@ class _LearningHomePageState extends State<LearningHomePage> {
             onPressed: _controller?.reload,
             icon: const Icon(Icons.refresh),
           ),
+          IconButton(
+            tooltip: _ignoredWebErrorCount == 0
+                ? 'Keine ignorierten Fehlermeldungen'
+                : 'Ignorierte Fehlermeldungen zurücksetzen',
+            onPressed:
+                _ignoredWebErrorCount == 0 ? null : _resetIgnoredWebErrors,
+            icon: const _ResetIgnoredErrorsIcon(),
+          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
           child: _isLoading
-              ? LinearProgressIndicator(value: _progress == 0 ? null : _progress)
+              ? LinearProgressIndicator(
+                  value: _progress == 0 ? null : _progress,
+                )
               : const SizedBox(height: 3),
         ),
       ),
@@ -301,6 +354,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
                     child: _WebViewErrorBanner(
                       error: error,
                       onDismissed: () => setState(() => _lastWebError = null),
+                      onIgnored: () => _ignoreWebError(error),
                       onShowDetails: () => _showWebErrorDetails(error),
                     ),
                   ),
@@ -419,11 +473,13 @@ class _WebViewErrorBanner extends StatelessWidget {
   const _WebViewErrorBanner({
     required this.error,
     required this.onDismissed,
+    required this.onIgnored,
     required this.onShowDetails,
   });
 
   final _WebViewErrorDetails error;
   final VoidCallback onDismissed;
+  final VoidCallback onIgnored;
   final VoidCallback onShowDetails;
 
   @override
@@ -449,6 +505,12 @@ class _WebViewErrorBanner extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   onPressed: onDismissed,
                   icon: const Icon(Icons.close),
+                ),
+                IconButton(
+                  tooltip: 'Gleichartige Fehlermeldungen dauerhaft ignorieren',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onIgnored,
+                  icon: const _IgnoreWebErrorIcon(),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
@@ -486,6 +548,7 @@ class _WebViewErrorDetails {
   const _WebViewErrorDetails({
     required this.summary,
     required this.fullText,
+    required this.ignoreRule,
   });
 
   factory _WebViewErrorDetails.fromError(
@@ -495,6 +558,7 @@ class _WebViewErrorDetails {
   }) {
     final errorType = error.errorType?.name ?? 'unknown';
     final url = error.url ?? fallbackUrl;
+    final urlHost = Uri.tryParse(url)?.host.toLowerCase() ?? '';
     final summary =
         'WebView-Fehler ${error.errorCode} ($errorType): ${error.description}';
     final mainFrame = switch (error.isForMainFrame) {
@@ -517,9 +581,160 @@ class _WebViewErrorDetails {
     return _WebViewErrorDetails(
       summary: summary,
       fullText: buffer.toString(),
+      ignoreRule: WebErrorIgnoreRule(
+        urlHost: urlHost,
+        errorCode: error.errorCode,
+        errorType: errorType,
+        description: error.description,
+        isForMainFrame: error.isForMainFrame,
+      ),
     );
   }
 
   final String summary;
   final String fullText;
+  final WebErrorIgnoreRule ignoreRule;
+}
+
+class _IgnoreWebErrorIcon extends StatelessWidget {
+  const _IgnoreWebErrorIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 24,
+      child: CustomPaint(
+        painter: _IgnoreWebErrorIconPainter(
+          IconTheme.of(context).color ?? Colors.black,
+        ),
+      ),
+    );
+  }
+}
+
+class _IgnoreWebErrorIconPainter extends CustomPainter {
+  const _IgnoreWebErrorIconPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    final scaleX = size.width / 24;
+    final scaleY = size.height / 24;
+    Offset p(double x, double y) => Offset(x * scaleX, y * scaleY);
+
+    canvas.drawArc(
+      Rect.fromCircle(center: p(11, 10), radius: 6 * scaleX),
+      -1.55,
+      4.85,
+      false,
+      stroke,
+    );
+    canvas.drawCircle(p(13.4, 8.4), 0.9 * scaleX, fill);
+    canvas.drawPath(
+      Path()
+        ..moveTo(p(15, 12).dx, p(15, 12).dy)
+        ..quadraticBezierTo(
+          p(17.4, 13.2).dx,
+          p(17.4, 13.2).dy,
+          p(14.8, 14.6).dx,
+          p(14.8, 14.6).dy,
+        ),
+      stroke,
+    );
+    canvas.drawLine(p(7.5, 18), p(15, 18), stroke);
+
+    final fingerStroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5 * scaleX
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawLine(p(16.5, 7), p(16.5, 19), fingerStroke);
+    canvas.drawLine(p(14.7, 11.2), p(19.2, 11.2), stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant _IgnoreWebErrorIconPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+class _ResetIgnoredErrorsIcon extends StatelessWidget {
+  const _ResetIgnoredErrorsIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 24,
+      child: CustomPaint(
+        painter: _ResetIgnoredErrorsIconPainter(
+          IconTheme.of(context).color ?? Colors.black,
+        ),
+      ),
+    );
+  }
+}
+
+class _ResetIgnoredErrorsIconPainter extends CustomPainter {
+  const _ResetIgnoredErrorsIconPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide * 0.34;
+
+    canvas.drawCircle(center, size.shortestSide * 0.07, fill);
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -0.55,
+      -5.0,
+      false,
+      stroke,
+    );
+    final arrowTip = Offset(
+      center.dx - radius * 0.88,
+      center.dy - radius * 0.4,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(arrowTip.dx, arrowTip.dy)
+        ..lineTo(
+          arrowTip.dx + size.width * 0.18,
+          arrowTip.dy - size.height * 0.02,
+        )
+        ..moveTo(arrowTip.dx, arrowTip.dy)
+        ..lineTo(
+          arrowTip.dx + size.width * 0.06,
+          arrowTip.dy + size.height * 0.17,
+        ),
+      stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ResetIgnoredErrorsIconPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
 }
