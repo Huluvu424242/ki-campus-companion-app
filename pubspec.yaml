@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   webview_flutter: ^4.13.0
-  webview_flutter_android: ^4.10.5
+  webview_flutter_android: 4.10.1
   shared_preferences: ^2.5.0
   path_provider: ^2.1.5
   share_plus: ^10.1.0
