@@ -72,11 +72,33 @@ jobs:
       - name: Test
         run: flutter test
 
+      - name: Decode Android release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
+            echo "ANDROID_KEYSTORE_BASE64 secret is required for stable release signing. See README.md#einmalige-signatur-konfiguration." >&2
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/android-signing"
+          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > "$RUNNER_TEMP/android-signing/release.jks"
+
       - name: Build Android release APK
         env:
           RELEASE_VERSION: ${{ inputs.release_version }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/android-signing/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          for secret_name in ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!secret_name}" ]; then
+              echo "${secret_name} secret is required for stable release signing. See README.md#einmalige-signatur-konfiguration." >&2
+              exit 1
+            fi
+          done
           build_name="${RELEASE_VERSION%%+*}"
           build_number="${RELEASE_VERSION##*+}"
           flutter build apk --release --build-name "${build_name}" --build-number "${build_number}"
@@ -87,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          apk_name="ki-campus-companion-${RELEASE_VERSION}.apk"
+          apk_name="ki-campus-companion-app-${RELEASE_VERSION}.apk"
           cp build/app/outputs/flutter-apk/app-release.apk "release/${apk_name}"
           (cd release && sha256sum "${apk_name}" > "${apk_name}.sha256")
 

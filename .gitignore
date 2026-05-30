@@ -19,3 +19,7 @@ Thumbs.db
 # Generated platform folders can be recreated with: flutter create .
 ios/
 macos/
+
+# Android signing secrets
+*.jks
+*.keystore

@@ -47,10 +47,26 @@ jobs:
       - name: Build APK
         run: flutter build apk --release
 
+      - name: Prepare named APK artifact
+        run: |
+          set -euo pipefail
+          version="$(python3 - <<'PY'
+          from pathlib import Path
+          for line in Path('pubspec.yaml').read_text(encoding='utf-8').splitlines():
+              if line.startswith('version:'):
+                  print(line.split(':', 1)[1].strip())
+                  break
+          else:
+              raise SystemExit('pubspec.yaml version is missing')
+          PY
+          )"
+          mkdir -p artifacts
+          cp build/app/outputs/flutter-apk/app-release.apk "artifacts/ki-campus-companion-app-${version}.apk"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: android-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: ki-campus-companion-app-release-apk
+          path: artifacts/ki-campus-companion-app-*.apk
           if-no-files-found: error
           retention-days: 30
