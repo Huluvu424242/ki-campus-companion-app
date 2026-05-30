@@ -5,6 +5,8 @@
 - kleine Funktionen bevorzugen
 - keine Magic Numbers
 - sprechende Variablennamen
+- Dateigrößen klein halten, eher auslagern. 
+- Feature basiert spezialisierte Funktionalität in separaten Datein sammeln. 
 
 ## Architektur
 - Feature-first Struktur
