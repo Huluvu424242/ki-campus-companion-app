@@ -50,4 +50,30 @@ void main() {
     expect(bookmarks[0].url, 'https://ki-campus.org/c');
     expect(bookmarks[1].url, 'https://ki-campus.org/a');
   });
+
+  test('ignored web errors are persisted once and can be cleared', () async {
+    final store = LearningStore();
+    const rule = WebErrorIgnoreRule(
+      urlHost: 'matomo.example.org',
+      errorCode: -2,
+      errorType: 'hostLookup',
+      description: 'net::ERR_NAME_NOT_RESOLVED',
+      isForMainFrame: false,
+    );
+
+    expect(await store.isWebErrorIgnored(rule), isFalse);
+
+    await store.saveIgnoredWebError(rule);
+    await store.saveIgnoredWebError(rule);
+
+    final ignoredRules = await store.loadIgnoredWebErrors();
+    expect(ignoredRules, hasLength(1));
+    expect(ignoredRules.single, rule);
+    expect(await store.isWebErrorIgnored(rule), isTrue);
+
+    await store.clearIgnoredWebErrors();
+
+    expect(await store.loadIgnoredWebErrors(), isEmpty);
+    expect(await store.isWebErrorIgnored(rule), isFalse);
+  });
 }
