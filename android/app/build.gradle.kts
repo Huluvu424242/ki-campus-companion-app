@@ -5,6 +5,18 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+fun releaseSigningValue(name: String): String? =
+    (project.findProperty(name) as String?)
+        ?.takeIf { it.isNotBlank() }
+        ?: System.getenv(name)?.takeIf { it.isNotBlank() }
+
+val hasReleaseSigningConfig = listOf(
+    "ANDROID_KEYSTORE_PATH",
+    "ANDROID_KEYSTORE_PASSWORD",
+    "ANDROID_KEY_ALIAS",
+    "ANDROID_KEY_PASSWORD",
+).all { releaseSigningValue(it) != null }
+
 android {
     namespace = "com.example.ki_campus_companion"
     compileSdk = flutter.compileSdkVersion
@@ -30,11 +42,25 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigningConfig) {
+            create("release") {
+                storeFile = file(releaseSigningValue("ANDROID_KEYSTORE_PATH")!!)
+                storePassword = releaseSigningValue("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = releaseSigningValue("ANDROID_KEY_ALIAS")
+                keyPassword = releaseSigningValue("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // GitHub releases must provide a stable release keystore so Android can
+            // upgrade existing installations. Local release builds keep the Flutter
+            // debug signing fallback unless all release signing values are present.
+            signingConfig = signingConfigs.getByName(
+                if (hasReleaseSigningConfig) "release" else "debug",
+            )
         }
     }
 }
