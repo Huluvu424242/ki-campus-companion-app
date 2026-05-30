@@ -60,13 +60,39 @@ Wichtig für Android: Stelle sicher, dass in `android/app/src/main/AndroidManife
 
 Für öffentliche APK-Downloads gibt es den manuell startbaren Workflow **Android Release APK**. Vor dem Start muss die Flutter-Version in `pubspec.yaml` auf die neue vollständige Version im Format `MAJOR.MINOR.PATCH+BUILD` erhöht werden, z. B. `0.2.0+2`.
 
-Ablauf:
+### Einmalige Signatur-Konfiguration
+
+Ja: Für aktualisierbare Release-APKs muss einmalig ein stabiler Android-Keystore bereitgestellt werden. Android akzeptiert Updates nur, wenn das neue APK mit demselben Schlüssel signiert ist wie die bereits installierte App. Deshalb darf der Release-Workflow nicht bei jedem Lauf mit einem neu erzeugten Debug-Key signieren.
+
+Der Keystore wird **nicht** ins Repository eingecheckt. Lege ihn lokal an und speichere ihn anschließend als GitHub-Actions-Secrets:
+
+```bash
+keytool -genkeypair \
+  -v \
+  -keystore ki-campus-companion-app-release.jks \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000 \
+  -alias ki-campus-companion-app
+base64 -w 0 ki-campus-companion-app-release.jks
+```
+
+Benötigte Secrets unter **GitHub → Settings → Secrets and variables → Actions**:
+
+- `ANDROID_KEYSTORE_BASE64`: Base64-Ausgabe der `.jks`-Datei
+- `ANDROID_KEYSTORE_PASSWORD`: Passwort des Keystores
+- `ANDROID_KEY_ALIAS`: Alias, z. B. `ki-campus-companion-app`
+- `ANDROID_KEY_PASSWORD`: Passwort des Schlüssels
+
+Wichtig: Falls eine bereits installierte APK mit einem anderen Schlüssel signiert wurde, kann Android genau dieses eine Update weiterhin ablehnen. In dem Fall muss die alte Installation einmalig deinstalliert werden. Danach sind Updates mit allen zukünftigen APKs möglich, solange dieselben Secrets unverändert bleiben.
+
+### Ablauf
 
 1. In GitHub **Actions → Android Release APK → Run workflow** öffnen.
 2. Als `release_version` exakt die Version aus `pubspec.yaml` eintragen.
 3. Optional Markdown-Release-Notes erfassen.
 
-Der Workflow prüft zuerst, dass die angegebene Version noch keinen Release-Tag besitzt, mit `pubspec.yaml` übereinstimmt, größer als der letzte `vMAJOR.MINOR.PATCH+BUILD`-Tag ist und Android weiterhin `versionName`/`versionCode` aus der Flutter-Version übernimmt. Danach werden Analyse, Tests und der Android-Release-Build ausgeführt. Die fertige APK und eine SHA-256-Prüfsumme werden als GitHub Release unter dem Tag `v<release_version>` veröffentlicht.
+Der Workflow prüft zuerst, dass die angegebene Version noch keinen Release-Tag besitzt, mit `pubspec.yaml` übereinstimmt, größer als der letzte `vMAJOR.MINOR.PATCH+BUILD`-Tag ist und Android weiterhin `versionName`/`versionCode` aus der Flutter-Version übernimmt. Danach werden Analyse, Tests und der Android-Release-Build mit dem stabilen Keystore ausgeführt. Die fertige APK und eine SHA-256-Prüfsumme werden als GitHub Release unter dem Tag `v<release_version>` veröffentlicht.
 
 ## Lizenz
 

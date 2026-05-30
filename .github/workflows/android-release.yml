@@ -78,7 +78,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
-            echo "ANDROID_KEYSTORE_BASE64 secret is required for stable release signing." >&2
+            echo "ANDROID_KEYSTORE_BASE64 secret is required for stable release signing. See README.md#einmalige-signatur-konfiguration." >&2
             exit 1
           fi
           mkdir -p "$RUNNER_TEMP/android-signing"
@@ -95,7 +95,7 @@ jobs:
           set -euo pipefail
           for secret_name in ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
             if [ -z "${!secret_name}" ]; then
-              echo "${secret_name} secret is required for stable release signing." >&2
+              echo "${secret_name} secret is required for stable release signing. See README.md#einmalige-signatur-konfiguration." >&2
               exit 1
             fi
           done
