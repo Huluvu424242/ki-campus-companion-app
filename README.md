@@ -56,6 +56,18 @@ Wichtig für Android: Stelle sicher, dass in `android/app/src/main/AndroidManife
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
+## Android-Release per GitHub Actions
+
+Für öffentliche APK-Downloads gibt es den manuell startbaren Workflow **Android Release APK**. Vor dem Start muss die Flutter-Version in `pubspec.yaml` auf die neue vollständige Version im Format `MAJOR.MINOR.PATCH+BUILD` erhöht werden, z. B. `0.2.0+2`.
+
+Ablauf:
+
+1. In GitHub **Actions → Android Release APK → Run workflow** öffnen.
+2. Als `release_version` exakt die Version aus `pubspec.yaml` eintragen.
+3. Optional Markdown-Release-Notes erfassen.
+
+Der Workflow prüft zuerst, dass die angegebene Version noch keinen Release-Tag besitzt, mit `pubspec.yaml` übereinstimmt, größer als der letzte `vMAJOR.MINOR.PATCH+BUILD`-Tag ist und Android weiterhin `versionName`/`versionCode` aus der Flutter-Version übernimmt. Danach werden Analyse, Tests und der Android-Release-Build ausgeführt. Die fertige APK und eine SHA-256-Prüfsumme werden als GitHub Release unter dem Tag `v<release_version>` veröffentlicht.
+
 ## Lizenz
 
 Der eigene Projektcode steht unter MIT. Die verwendeten Flutter-Pakete sind gesondert lizenziert; siehe `docs/LICENSE_CHECK.md`.
