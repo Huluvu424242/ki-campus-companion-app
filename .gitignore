@@ -22,4 +22,4 @@ macos/
 
 # Android signing secrets
 *.jks
-*.keystore
+*keystore*.*
