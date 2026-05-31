@@ -1,0 +1,33 @@
+name: Accessibility axe Smoke
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  axe-smoke:
+    name: Run axe smoke audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install axe tooling
+        run: npm install --no-save @axe-core/playwright playwright
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run axe smoke audit
+        run: node scripts/run_axe_smoke.mjs docs/accessibility/axe-smoke.html

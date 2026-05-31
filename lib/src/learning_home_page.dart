@@ -1,14 +1,27 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
+import 'bookmarks_sheet.dart';
+import 'import_option_dialog.dart';
+import 'learning_companion_navigation_bar.dart';
 import 'learning_entry.dart';
 import 'learning_store.dart';
+import 'unsupported_webview_placeholder.dart';
+import 'web_view_error_banner.dart';
+import 'web_view_error_details.dart';
+
+const _notDoneUnavailableMessage =
+    'Nicht implementiert, weil:\n'
+    'Moodle bietet keine offizielles API zum Zurücksetzen des Seitenstatus '
+    'von Erledigt auf Nicht Erledigt';
 
 class LearningHomePage extends StatefulWidget {
   const LearningHomePage({super.key});
@@ -31,7 +44,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
   Map<String, LearningEntry> _entries = {};
   bool _isLoading = true;
   double _progress = 0;
-  _WebViewErrorDetails? _lastWebError;
+  WebViewErrorDetails? _lastWebError;
   int _ignoredWebErrorCount = 0;
 
   LearningEntry get _currentEntry =>
@@ -70,7 +83,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
                   await _ensureCurrentEntryTitle();
                 },
                 onWebResourceError: (error) {
-                  final details = _WebViewErrorDetails.fromError(
+                  final details = WebViewErrorDetails.fromError(
                     error,
                     fallbackUrl: _currentUrl,
                     stackTrace: StackTrace.current,
@@ -95,7 +108,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
     setState(() => _ignoredWebErrorCount = ignoredErrors.length);
   }
 
-  Future<void> _handleWebResourceError(_WebViewErrorDetails details) async {
+  Future<void> _handleWebResourceError(WebViewErrorDetails details) async {
     debugPrint(details.fullText);
     final isIgnored = await _store.isWebErrorIgnored(details.ignoreRule);
     if (!mounted) return;
@@ -128,13 +141,75 @@ class _LearningHomePageState extends State<LearningHomePage> {
     );
   }
 
-  Future<void> _setStatus(LearningStatus status) async {
-    await _saveEntry(
-      _currentEntry.copyWith(
-        title: _currentTitle,
-        status: status,
+  void _showNotDoneUnavailableMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(_notDoneUnavailableMessage),
       ),
     );
+  }
+
+  Future<void> _copyCurrentUrl() async {
+    await Clipboard.setData(ClipboardData(text: _currentUrl));
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Aktuelle URL wurde in die Zwischenablage kopiert.'),
+      ),
+    );
+  }
+
+  Future<void> _openUrlEditDialog() async {
+    final urlController = TextEditingController(text: _currentUrl);
+
+    final editedUrl = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          icon: const Icon(Icons.edit_square),
+          title: const Text('URL bearbeiten'),
+          content: TextField(
+            controller: urlController,
+            autofocus: true,
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'Aktuelle URL',
+              hintText: 'https://ki-campus.org/...',
+            ),
+            onSubmitted: (value) => Navigator.pop(context, value),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, urlController.text),
+              child: const Text('Übernehmen'),
+            ),
+          ],
+        );
+      },
+    );
+
+    urlController.dispose();
+    if (editedUrl == null || !mounted) return;
+
+    final normalizedUrl = editedUrl.trim();
+    final uri = Uri.tryParse(normalizedUrl);
+    if (normalizedUrl.isEmpty || uri == null || !uri.hasScheme) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bitte eine vollständige URL mit Protokoll eingeben.'),
+        ),
+      );
+      return;
+    }
+
+    await _controller?.loadRequest(uri);
   }
 
   Future<void> _openNoteSheet() async {
@@ -206,7 +281,73 @@ class _LearningHomePageState extends State<LearningHomePage> {
     );
   }
 
-  Future<void> _ignoreWebError(_WebViewErrorDetails error) async {
+  Future<void> _importMarkdown() async {
+    final pickedFile = await FilePicker.platform.pickFiles(
+      dialogTitle: 'KI-Campus Companion Export auswählen',
+      type: FileType.custom,
+      allowedExtensions: ['md', 'markdown', 'txt'],
+    );
+    final filePath = pickedFile?.files.single.path;
+    if (filePath == null || !mounted) return;
+
+    final clearExisting = await _confirmImportOption(
+      title: 'Vor Import löschen?',
+      message:
+          'Sollen vor dem Import alle bestehenden Notizen und Bookmarks gelöscht werden?',
+    );
+    if (clearExisting == null || !mounted) return;
+
+    final overwriteExisting = await _confirmImportOption(
+      title: 'Bestehende Daten überschreiben?',
+      message:
+          'Sollen bereits bestehende identische Notizen und Bookmarks anhand ihrer URL überschrieben werden?',
+    );
+    if (overwriteExisting == null || !mounted) return;
+
+    try {
+      final markdown = await File(filePath).readAsString();
+      final result = await _store.importMarkdown(
+        markdown,
+        clearExisting: clearExisting,
+        overwriteExisting: overwriteExisting,
+      );
+      await _loadEntries();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Import abgeschlossen: ${result.imported} importiert, '
+            '${result.overwritten} überschrieben, ${result.skipped} übersprungen.',
+          ),
+        ),
+      );
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import nicht möglich: ${error.message}')),
+      );
+    } on Object catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import fehlgeschlagen: $error')),
+      );
+    }
+  }
+
+  Future<bool?> _confirmImportOption({
+    required String title,
+    required String message,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => ImportOptionDialog(
+        title: title,
+        message: message,
+      ),
+    );
+  }
+
+  Future<void> _ignoreWebError(WebViewErrorDetails error) async {
     await _store.saveIgnoredWebError(error.ignoreRule);
     await _loadIgnoredWebErrorCount();
     if (!mounted) return;
@@ -221,6 +362,15 @@ class _LearningHomePageState extends State<LearningHomePage> {
   }
 
   Future<void> _resetIgnoredWebErrors() async {
+    if (_ignoredWebErrorCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Keine ignorierten WebView-Fehler vorhanden.'),
+        ),
+      );
+      return;
+    }
+
     await _store.clearIgnoredWebErrors();
     await _loadIgnoredWebErrorCount();
     if (!mounted) return;
@@ -231,7 +381,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
     );
   }
 
-  Future<void> _showWebErrorDetails(_WebViewErrorDetails error) async {
+  Future<void> _showWebErrorDetails(WebViewErrorDetails error) async {
     await showDialog<void>(
       context: context,
       builder: (context) {
@@ -252,38 +402,58 @@ class _LearningHomePageState extends State<LearningHomePage> {
     );
   }
 
+  Future<void> _openOverflowActions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.bookmarks_outlined),
+                title: const Text('Bookmarks öffnen'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openBookmarks();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_download_outlined),
+                title: const Text('Importieren'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _importMarkdown();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_upload_outlined),
+                title: const Text('Markdown exportieren'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _exportMarkdown();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _openBookmarks() async {
     final bookmarks = await _store.loadBookmarkedEntries();
     if (!mounted) return;
 
     await showModalBottomSheet<void>(
       context: context,
-      builder: (context) {
-        if (bookmarks.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text('Noch keine Bookmarks vorhanden.'),
-          );
-        }
-
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: bookmarks.length,
-          separatorBuilder: (_, __) => const Divider(),
-          itemBuilder: (context, index) {
-            final entry = bookmarks[index];
-            return ListTile(
-              leading: const Icon(Icons.bookmark),
-              title: Text(entry.title.isEmpty ? entry.url : entry.title),
-              subtitle: Text(entry.url),
-              onTap: () {
-                Navigator.pop(context);
-                _controller?.loadRequest(Uri.parse(entry.url));
-              },
-            );
-          },
-        );
-      },
+      builder: (context) => BookmarksSheet(
+        bookmarks: bookmarks,
+        onBookmarkSelected: (entry) {
+          Navigator.pop(context);
+          _controller?.loadRequest(Uri.parse(entry.url));
+        },
+      ),
     );
   }
 
@@ -325,12 +495,14 @@ class _LearningHomePageState extends State<LearningHomePage> {
             icon: const Icon(Icons.refresh),
           ),
           IconButton(
-            tooltip: _ignoredWebErrorCount == 0
-                ? 'Keine ignorierten Fehlermeldungen'
-                : 'Ignorierte Fehlermeldungen zurücksetzen',
-            onPressed:
-                _ignoredWebErrorCount == 0 ? null : _resetIgnoredWebErrors,
-            icon: const _ResetIgnoredErrorsIcon(),
+            tooltip: 'Aktuelle URL kopieren',
+            onPressed: _copyCurrentUrl,
+            icon: const Icon(Icons.copy),
+          ),
+          IconButton(
+            tooltip: 'Aktuelle URL bearbeiten',
+            onPressed: _controller == null ? null : _openUrlEditDialog,
+            icon: const Icon(Icons.edit_square),
           ),
         ],
         bottom: PreferredSize(
@@ -351,7 +523,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
                     left: 12,
                     right: 12,
                     bottom: 12,
-                    child: _WebViewErrorBanner(
+                    child: WebViewErrorBanner(
                       error: error,
                       onDismissed: () => setState(() => _lastWebError = null),
                       onIgnored: () => _ignoreWebError(error),
@@ -360,87 +532,14 @@ class _LearningHomePageState extends State<LearningHomePage> {
                   ),
               ],
             )
-          : Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.desktop_windows, size: 56),
-                    const SizedBox(height: 12),
-                    Text(
-                      'In dieser Desktop-Version ist derzeit kein eingebetteter WebView verfügbar.',
-                      style: Theme.of(context).textTheme.titleMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      'Bitte öffne die Lernseite im Browser:\n${_startUrl.toString()}',
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _statusIndex(entry.status),
-        onDestinationSelected: (index) async {
-          switch (index) {
-            case 0:
-              await _toggleBookmark();
-            case 1:
-              await _openNoteSheet();
-            case 2:
-              await _setStatus(LearningStatus.understood);
-            case 3:
-              await _setStatus(LearningStatus.repeat);
-            case 4:
-              await _setStatus(LearningStatus.done);
-          }
-        },
-        destinations: [
-          NavigationDestination(
-            icon: Icon(entry.bookmarked ? Icons.bookmark : Icons.bookmark_border),
-            label: 'Merken',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.note_alt_outlined),
-            label: 'Notiz',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            label: 'Verstanden',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.replay),
-            label: 'Wiederholen',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.done_all),
-            label: 'Erledigt',
-          ),
-        ],
-      ),
-      floatingActionButton: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
-        onSelected: (value) async {
-          switch (value) {
-            case 'bookmarks':
-              await _openBookmarks();
-            case 'export':
-              await _exportMarkdown();
-          }
-        },
-        itemBuilder: (context) => const [
-          PopupMenuItem(
-            value: 'bookmarks',
-            child: Text('Bookmarks öffnen'),
-          ),
-          PopupMenuItem(
-            value: 'export',
-            child: Text('Markdown exportieren'),
-          ),
-        ],
+          : UnsupportedWebViewPlaceholder(startUrl: _startUrl),
+      bottomNavigationBar: LearningCompanionNavigationBar(
+        entry: entry,
+        onBookmarkSelected: () => unawaited(_toggleBookmark()),
+        onNoteSelected: () => unawaited(_openNoteSheet()),
+        onNotDoneSelected: _showNotDoneUnavailableMessage,
+        onResetErrorsSelected: () => unawaited(_resetIgnoredWebErrors()),
+        onMoreSelected: () => unawaited(_openOverflowActions()),
       ),
     );
   }
@@ -457,284 +556,5 @@ class _LearningHomePageState extends State<LearningHomePage> {
     }
 
     return WebViewWidget(controller: controller);
-  }
-
-  int _statusIndex(LearningStatus status) {
-    return switch (status) {
-      LearningStatus.open => 0,
-      LearningStatus.understood => 2,
-      LearningStatus.repeat => 3,
-      LearningStatus.done => 4,
-    };
-  }
-}
-
-class _WebViewErrorBanner extends StatelessWidget {
-  const _WebViewErrorBanner({
-    required this.error,
-    required this.onDismissed,
-    required this.onIgnored,
-    required this.onShowDetails,
-  });
-
-  final _WebViewErrorDetails error;
-  final VoidCallback onDismissed;
-  final VoidCallback onIgnored;
-  final VoidCallback onShowDetails;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Semantics(
-      button: true,
-      label:
-          'WebView-Fehler. Für Details antippen oder mit Schließen ausblenden.',
-      child: Card(
-        color: colorScheme.errorContainer,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onShowDetails,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(4, 8, 12, 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                IconButton(
-                  tooltip: 'Fehlermeldung schließen',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onDismissed,
-                  icon: const Icon(Icons.close),
-                ),
-                IconButton(
-                  tooltip: 'Gleichartige Fehlermeldungen dauerhaft ignorieren',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onIgnored,
-                  icon: const _IgnoreWebErrorIcon(),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        error.summary,
-                        style: TextStyle(
-                          color: colorScheme.onErrorContainer,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Tippen für vollständige URL und Details.',
-                        style: TextStyle(
-                          color: colorScheme.onErrorContainer,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WebViewErrorDetails {
-  const _WebViewErrorDetails({
-    required this.summary,
-    required this.fullText,
-    required this.ignoreRule,
-  });
-
-  factory _WebViewErrorDetails.fromError(
-    WebResourceError error, {
-    required String fallbackUrl,
-    required StackTrace stackTrace,
-  }) {
-    final errorType = error.errorType?.name ?? 'unknown';
-    final url = error.url ?? fallbackUrl;
-    final urlHost = Uri.tryParse(url)?.host.toLowerCase() ?? '';
-    final summary =
-        'WebView-Fehler ${error.errorCode} ($errorType): ${error.description}';
-    final mainFrame = switch (error.isForMainFrame) {
-      true => 'ja',
-      false => 'nein',
-      null => 'unbekannt',
-    };
-    final buffer = StringBuffer()
-      ..writeln(summary)
-      ..writeln()
-      ..writeln('URL: $url')
-      ..writeln('Fehlercode: ${error.errorCode}')
-      ..writeln('Fehlertyp: $errorType')
-      ..writeln('Haupt-Frame: $mainFrame')
-      ..writeln('Beschreibung: ${error.description}')
-      ..writeln()
-      ..writeln('Stacktrace:')
-      ..write(stackTrace);
-
-    return _WebViewErrorDetails(
-      summary: summary,
-      fullText: buffer.toString(),
-      ignoreRule: WebErrorIgnoreRule(
-        urlHost: urlHost,
-        errorCode: error.errorCode,
-        errorType: errorType,
-        description: error.description,
-        isForMainFrame: error.isForMainFrame,
-      ),
-    );
-  }
-
-  final String summary;
-  final String fullText;
-  final WebErrorIgnoreRule ignoreRule;
-}
-
-class _IgnoreWebErrorIcon extends StatelessWidget {
-  const _IgnoreWebErrorIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 24,
-      child: CustomPaint(
-        painter: _IgnoreWebErrorIconPainter(
-          IconTheme.of(context).color ?? Colors.black,
-        ),
-      ),
-    );
-  }
-}
-
-class _IgnoreWebErrorIconPainter extends CustomPainter {
-  const _IgnoreWebErrorIconPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final fill = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final scaleX = size.width / 24;
-    final scaleY = size.height / 24;
-    Offset p(double x, double y) => Offset(x * scaleX, y * scaleY);
-
-    canvas.drawArc(
-      Rect.fromCircle(center: p(11, 10), radius: 6 * scaleX),
-      -1.55,
-      4.85,
-      false,
-      stroke,
-    );
-    canvas.drawCircle(p(13.4, 8.4), 0.9 * scaleX, fill);
-    canvas.drawPath(
-      Path()
-        ..moveTo(p(15, 12).dx, p(15, 12).dy)
-        ..quadraticBezierTo(
-          p(17.4, 13.2).dx,
-          p(17.4, 13.2).dy,
-          p(14.8, 14.6).dx,
-          p(14.8, 14.6).dy,
-        ),
-      stroke,
-    );
-    canvas.drawLine(p(7.5, 18), p(15, 18), stroke);
-
-    final fingerStroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5 * scaleX
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    canvas.drawLine(p(16.5, 7), p(16.5, 19), fingerStroke);
-    canvas.drawLine(p(14.7, 11.2), p(19.2, 11.2), stroke);
-  }
-
-  @override
-  bool shouldRepaint(covariant _IgnoreWebErrorIconPainter oldDelegate) {
-    return oldDelegate.color != color;
-  }
-}
-
-class _ResetIgnoredErrorsIcon extends StatelessWidget {
-  const _ResetIgnoredErrorsIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 24,
-      child: CustomPaint(
-        painter: _ResetIgnoredErrorsIconPainter(
-          IconTheme.of(context).color ?? Colors.black,
-        ),
-      ),
-    );
-  }
-}
-
-class _ResetIgnoredErrorsIconPainter extends CustomPainter {
-  const _ResetIgnoredErrorsIconPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final fill = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.shortestSide * 0.34;
-
-    canvas.drawCircle(center, size.shortestSide * 0.07, fill);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -0.55,
-      -5.0,
-      false,
-      stroke,
-    );
-    final arrowTip = Offset(
-      center.dx - radius * 0.88,
-      center.dy - radius * 0.4,
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(arrowTip.dx, arrowTip.dy)
-        ..lineTo(
-          arrowTip.dx + size.width * 0.18,
-          arrowTip.dy - size.height * 0.02,
-        )
-        ..moveTo(arrowTip.dx, arrowTip.dy)
-        ..lineTo(
-          arrowTip.dx + size.width * 0.06,
-          arrowTip.dy + size.height * 0.17,
-        ),
-      stroke,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ResetIgnoredErrorsIconPainter oldDelegate) {
-    return oldDelegate.color != color;
   }
 }

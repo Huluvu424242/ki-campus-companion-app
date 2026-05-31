@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'learning_entry.dart';
+import 'learning_export_format.dart';
+import 'learning_export_parser.dart';
+import 'web_error_ignore_rule.dart';
 
 class LearningStore {
   static const _entriesKey = 'learning_entries_v1';
@@ -85,16 +88,67 @@ class LearningStore {
     final entries = await loadEntries();
     final sortedEntries = entries.values.toList()
       ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
-    final body = sortedEntries.map((entry) => entry.toMarkdown()).join('\\n');
+    final exportedAt = DateTime.now().toIso8601String();
+    final exportPayload = const JsonEncoder.withIndent('  ').convert({
+      'format': LearningExportFormat.name,
+      'version': LearningExportFormat.version,
+      'exportedAt': exportedAt,
+      'entries': sortedEntries.map((entry) => entry.toJson()).toList(),
+    });
+    final body = sortedEntries.map((entry) => entry.toMarkdown()).join('\n');
 
     return '''
 # KI-Campus Companion Export
 
-Exportiert: ${DateTime.now().toIso8601String()}
+Exportiert: $exportedAt
+
+```json
+$exportPayload
+```
 
 $body
 ''';
+  }
+
+  Future<LearningImportResult> importMarkdown(
+    String markdown, {
+    required bool clearExisting,
+    required bool overwriteExisting,
+  }) async {
+    final importedEntries = LearningExportParser.parse(markdown);
+    if (importedEntries.isEmpty) {
+      throw const FormatException(
+        'Die Datei enthält keine importierbaren KI-Campus Einträge.',
+      );
+    }
+
+    final entries =
+        clearExisting ? <String, LearningEntry>{} : await loadEntries();
+    var importedCount = 0;
+    var overwrittenCount = 0;
+    var skippedCount = 0;
+
+    for (final entry in importedEntries) {
+      final existingEntry = entries[entry.url];
+      if (existingEntry != null && !overwriteExisting) {
+        skippedCount++;
+        continue;
+      }
+
+      entries[entry.url] = entry;
+      importedCount++;
+      if (existingEntry != null) {
+        overwrittenCount++;
+      }
+    }
+
+    await _saveEntries(entries);
+    return LearningImportResult(
+      imported: importedCount,
+      overwritten: overwrittenCount,
+      skipped: skippedCount,
+      clearedBeforeImport: clearExisting,
+    );
   }
 
   Future<void> _saveIgnoredWebErrors(List<WebErrorIgnoreRule> rules) async {
@@ -110,58 +164,4 @@ $body
     );
     await prefs.setString(_entriesKey, raw);
   }
-}
-
-class WebErrorIgnoreRule {
-  const WebErrorIgnoreRule({
-    required this.urlHost,
-    required this.errorCode,
-    required this.errorType,
-    required this.description,
-    required this.isForMainFrame,
-  });
-
-  final String urlHost;
-  final int errorCode;
-  final String errorType;
-  final String description;
-  final bool? isForMainFrame;
-
-  factory WebErrorIgnoreRule.fromJson(Map<String, Object?> json) {
-    return WebErrorIgnoreRule(
-      urlHost: json['urlHost'] as String? ?? '',
-      errorCode: json['errorCode'] as int? ?? 0,
-      errorType: json['errorType'] as String? ?? 'unknown',
-      description: json['description'] as String? ?? '',
-      isForMainFrame: json['isForMainFrame'] as bool?,
-    );
-  }
-
-  Map<String, Object?> toJson() => {
-        'urlHost': urlHost,
-        'errorCode': errorCode,
-        'errorType': errorType,
-        'description': description,
-        'isForMainFrame': isForMainFrame,
-      };
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is WebErrorIgnoreRule &&
-            other.urlHost == urlHost &&
-            other.errorCode == errorCode &&
-            other.errorType == errorType &&
-            other.description == description &&
-            other.isForMainFrame == isForMainFrame;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        urlHost,
-        errorCode,
-        errorType,
-        description,
-        isForMainFrame,
-      );
 }
