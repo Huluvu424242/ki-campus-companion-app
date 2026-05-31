@@ -50,7 +50,7 @@ class IgnoreWebErrorIconPainter extends CustomPainter {
     );
     final scale = iconSize / _psstSvgViewBoxSize;
     final readableStrokeWidth = _psstIconMinStrokeWidth / scale;
-    final strokeWidth = readableStrokeWidth > 28 ? readableStrokeWidth : 28;
+    final strokeWidth = readableStrokeWidth > 28.0 ? readableStrokeWidth : 28.0;
     final stroke = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
