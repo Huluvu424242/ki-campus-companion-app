@@ -1,98 +1,189 @@
-# KI-Campus Companion MVP
+# KI-Campus Companion App
 
-Ein kleines Flutter-MVP für eine **persönliche Lern-Companion-App** rund um KI-Campus/Moodle-Seiten.
+Eine kleine Flutter-App als **persönliche, lokale Companion-Schicht** für KI-Campus- und Moodle-Lernseiten. Die App ersetzt oder verändert KI-Campus nicht, sondern öffnet Lernseiten in einer WebView und speichert eigene Metadaten pro URL lokal auf dem Gerät.
 
-Die App verändert **nicht** den KI-Campus selbst. Sie legt eine eigene lokale Schicht darüber:
+## Zielbild und Grenzen
 
-- WebView für KI-Campus/Moodle
-- lokale Bookmarks pro URL
-- lokale Notizen pro URL
-- lokaler Lernstatus pro URL
-- Bookmark-Liste mit Direktnavigation
-- Markdown-Export über den nativen Teilen-Dialog
+- **Offline-first für Companion-Daten:** Bookmarks, Notizen, Import-/Export-Daten und ignorierte WebView-Fehler liegen lokal in `SharedPreferences`.
+- **Keine Moodle-/H5P-Manipulation:** Lernfortschritte auf KI-Campus werden nicht per DOM-Hack oder inoffizieller API verändert.
+- **Markdown first:** Exporte werden als Markdown-Datei geteilt und enthalten zusätzlich einen importierbaren JSON-Block.
+- **Unterstützte Zielplattformen im Projekt:** Android, Windows und Linux. Für eine echte Web-/GitHub-Pages-Version wäre eine separate Strategie nötig, weil die aktuelle App `dart:io` und native Plugins nutzt.
+- **MIT-kompatibel:** Der eigene Projektcode steht unter MIT; Paketlizenzen sind separat dokumentiert.
 
-## Ziel des MVP
+## Aktueller Funktionsumfang
 
-Dieses MVP zeigt, dass eine persönliche Companion-App sinnvoll sein kann, ohne Moodle/H5P/KI-Campus intern zu manipulieren.
+Beim Start lädt die App `https://ki-campus.org/` und bietet dazu eine lokale Lernnotiz-Schicht:
 
-## Aktueller Funktionsumfang (Ist-Stand)
-
-- Startseite lädt `https://ki-campus.org/` in einer WebView.
-- Top-Bar enthält Navigation (`Zurück`, `Vor`, `Neu laden`) und Ladeindikator.
-- Untere Navigation bietet pro aktueller URL:
+- **WebView-Navigation**
+  - Zurück, Vor, Neu laden
+  - Ladefortschritt in der App-Bar
+  - aktuelle URL kopieren
+  - aktuelle URL manuell bearbeiten und laden
+- **Lokale Einträge pro URL**
   - Bookmark an/aus
-  - Notiz bearbeiten (Bottom Sheet)
-  - Button `Nicht Erledigt` mit Hinweis, dass Moodle kein offizielles API zum Zurücksetzen des Erledigt-Status bietet
-  - Zurücksetzen ignorierter WebView-Fehlermeldungen (`Errorfilter reset`)
-  - Mehr-Menü
-- Kontextmenü (`Mehr`) bietet:
-  - Bookmark-Übersicht (sortiert nach letzter Änderung)
-  - Markdown-Export aller gespeicherten Einträge
-- Datenhaltung lokal in `SharedPreferences`.
+  - Notiz im Bottom Sheet bearbeiten
+  - Seitentitel wird beim Laden gespeichert
+  - `updatedAt` wird bei Änderungen aktualisiert
+- **Status-Hinweis**
+  - Der Button `Nicht Erledigt` setzt aktuell keinen Moodle-Status zurück.
+  - Stattdessen erklärt ein Hinweis, dass es kein offizielles Moodle-API für dieses Zurücksetzen gibt.
+- **Bookmark-Übersicht**
+  - über `Mehr → Bookmarks öffnen`
+  - sortiert nach letzter Änderung
+  - öffnet Bookmarks direkt wieder in der WebView
+- **Markdown-Export und Import**
+  - `Mehr → Markdown exportieren` erzeugt eine temporäre `.md`-Datei und öffnet den nativen Teilen-Dialog.
+  - `Mehr → Importieren` liest `.md`, `.markdown` oder `.txt` Dateien über den Dateiauswahldialog ein.
+  - Beim Import kann vorher alles gelöscht und/oder anhand identischer URLs überschrieben werden.
+  - Aktuelle Exporte enthalten einen JSON-Block (`ki-campus-companion-export`, Version 2) plus menschenlesbare Markdown-Abschnitte.
+  - Ältere reine Markdown-Exporte werden weiterhin importiert, sofern URL, Status, Bookmark und Aktualisiert-Felder enthalten sind.
+- **WebView-Fehlerfilter**
+  - WebView-Fehler werden als Banner angezeigt und in die Debug-Ausgabe geschrieben.
+  - Details zeigen URL, Fehlercode, Fehlertyp, Haupt-Frame-Info, Beschreibung und Stacktrace.
+  - Gleichartige Fehler können dauerhaft ignoriert werden.
+  - `Errorfilter reset` löscht die lokale Ignore-Liste.
+- **Accessibility-Basics**
+  - App-Bar-Aktionen haben Tooltips.
+  - Der Fehlerbanner ist semantisch als antippbares Element beschriftet.
+  - Fehlerdetails sind als selektierbarer Text zugänglich.
 
-## Wichtige Grenze
+## Projektstruktur
 
-`webview_flutter` unterstützt offiziell Android, iOS und macOS. Für eine echte Web-/GitHub-Pages-Version ist eine andere Strategie nötig (z. B. separate Web-App).
+```text
+lib/
+  main.dart                    # Flutter-Einstiegspunkt
+  src/app.dart                 # MaterialApp und Theme
+  src/learning_home_page.dart  # WebView, Navigation und UI-Orchestrierung
+  src/learning_entry.dart      # URL-gebundenes Datenmodell und Markdown-Ausgabe
+  src/learning_store.dart      # Persistenz, Export, Import und Fehlerfilter-Regeln
 
-## Start
+test/
+  learning_entry_test.dart
+  learning_store_test.dart
+  widget_test.dart
 
-```cmd
+docs/
+  ARCHITECTURE.md              # technische Architektur und Datenflüsse
+  LICENSE_CHECK.md             # Lizenzhinweise der verwendeten Pakete
+
+.github/workflows/
+  flutter.yml                  # Analyse und Tests
+  android-apk.yml              # einfacher APK-Build als Artifact
+  android-release.yml          # signierter Release-Build mit GitHub Release
+```
+
+## Lokal entwickeln
+
+### Voraussetzungen
+
+- Flutter SDK passend zu `pubspec.yaml` (`>=3.5.0 <4.0.0`)
+- Android Studio oder Android SDK/Build Tools für Android-Builds
+- JDK 17 für den Android-Release-Workflow
+- Git
+- optional: Linux-/Windows-Desktop-Toolchain, wenn Desktop-Builds lokal getestet werden sollen
+
+### Repository starten
+
+```powershell
+git clone https://github.com/Huluvu424242/ki-campus-companion-app.git
+cd ki-campus-companion-app
 flutter pub get
+flutter test
+flutter analyze
 flutter run
 ```
 
-Falls Du aus diesem Gerüst ein vollständiges Flutter-Projekt mit Plattformordnern erzeugen willst:
+Falls Plattformordner in einem lokalen Experiment neu erzeugt werden müssen, zuerst prüfen, ob dadurch projektbezogene Dateien überschrieben würden. Danach:
 
-```cmd
+```powershell
 flutter create .
 flutter pub get
-flutter run
 ```
 
-Wichtig für Android: Stelle sicher, dass in `android/app/src/main/AndroidManifest.xml` die Netzwerk-Rechte gesetzt sind, sonst lädt die WebView keine Online-Seiten (z. B. Fehler `net::ERR_CACHE_MISS`):
+### Android-Hinweise
+
+Die Android-WebView benötigt Netzwerkrechte in `android/app/src/main/AndroidManifest.xml`:
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
+Der Android-Release-Build übernimmt `versionName` und `versionCode` aus der Flutter-Version in `pubspec.yaml`, zum Beispiel `0.2.0+2`.
+
 ## Android-Release per GitHub Actions
 
-Für öffentliche APK-Downloads gibt es den manuell startbaren Workflow **Android Release APK**. Vor dem Start muss die Flutter-Version in `pubspec.yaml` auf die neue vollständige Version im Format `MAJOR.MINOR.PATCH+BUILD` erhöht werden, z. B. `0.2.0+2`.
+Für öffentliche APK-Downloads gibt es den manuell startbaren Workflow **Android Release APK** (`.github/workflows/android-release.yml`). Vor dem Start muss die Flutter-Version in `pubspec.yaml` auf eine neue vollständige Version im Format `MAJOR.MINOR.PATCH+BUILD` erhöht werden, z. B. `0.2.0+2`.
 
-### Einmalige Signatur-Konfiguration
+### Warum ein stabiler Keystore notwendig ist
 
-Ja: Für aktualisierbare Release-APKs muss einmalig ein stabiler Android-Keystore bereitgestellt werden. Android akzeptiert Updates nur, wenn das neue APK mit demselben Schlüssel signiert ist wie die bereits installierte App. Deshalb darf der Release-Workflow nicht bei jedem Lauf mit einem neu erzeugten Debug-Key signieren.
+Android akzeptiert Updates einer bereits installierten App nur, wenn die neue APK mit demselben Schlüssel signiert ist wie die alte APK. Deshalb darf der Release-Workflow nicht bei jedem Lauf einen neuen Schlüssel erzeugen. Der private Keystore bleibt außerhalb des Repositories und wird GitHub Actions verschlüsselt als Secret bereitgestellt.
 
-Der Keystore wird **nicht** ins Repository eingecheckt. Lege ihn lokal an und speichere ihn anschließend als GitHub-Actions-Secrets:
+Wenn eine schon installierte APK mit einem anderen Schlüssel signiert wurde, kann Android genau dieses Update ablehnen. Dann muss die alte Installation einmalig deinstalliert werden. Danach funktionieren Updates, solange alle zukünftigen APKs mit demselben Keystore signiert werden.
 
-```bash
-keytool -genkeypair \
-  -v \
-  -keystore ki-campus-companion-app-release.jks \
-  -keyalg RSA \
-  -keysize 2048 \
-  -validity 10000 \
+### Keystore lokal mit PowerShell erstellen
+
+> Wichtig: Die folgenden Beispiele sind für **PowerShell** beschrieben. Bitte nicht den Windows-`cmd`-Base64-Weg verwenden.
+
+1. Keystore erzeugen:
+
+```powershell
+keytool -genkeypair `
+  -v `
+  -keystore ki-campus-companion-app-release.jks `
+  -keyalg RSA `
+  -keysize 2048 `
+  -validity 10000 `
   -alias ki-campus-companion-app
-base64 -w 0 ki-campus-companion-app-release.jks
 ```
 
-Benötigte Secrets unter **GitHub → Settings → Secrets and variables → Actions**:
+2. Keystore als Base64-String für GitHub Actions kodieren:
 
-- `ANDROID_KEYSTORE_BASE64`: Base64-Ausgabe der `.jks`-Datei
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("ki-campus-companion-app-release.jks")) | Set-Clipboard
+```
+
+Falls die Ausgabe zusätzlich in eine Datei geschrieben werden soll:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("ki-campus-companion-app-release.jks")) | Set-Content -NoNewline "ki-campus-companion-app-release.jks.base64.txt"
+```
+
+### GitHub-Secrets einrichten
+
+In GitHub unter **Settings → Secrets and variables → Actions → New repository secret** folgende Secrets anlegen:
+
+- `ANDROID_KEYSTORE_BASE64`: Base64-Inhalt der `.jks`-Datei
 - `ANDROID_KEYSTORE_PASSWORD`: Passwort des Keystores
 - `ANDROID_KEY_ALIAS`: Alias, z. B. `ki-campus-companion-app`
 - `ANDROID_KEY_PASSWORD`: Passwort des Schlüssels
 
-Wichtig: Falls eine bereits installierte APK mit einem anderen Schlüssel signiert wurde, kann Android genau dieses eine Update weiterhin ablehnen. In dem Fall muss die alte Installation einmalig deinstalliert werden. Danach sind Updates mit allen zukünftigen APKs möglich, solange dieselben Secrets unverändert bleiben.
+Der Workflow dekodiert den Keystore in `$RUNNER_TEMP`, prüft die Versionskonsistenz, führt `flutter analyze` und `flutter test` aus, baut die Release-APK und veröffentlicht APK plus SHA-256-Prüfsumme als GitHub Release unter `v<release_version>`.
 
-### Ablauf
+### Release ausführen
 
-1. In GitHub **Actions → Android Release APK → Run workflow** öffnen.
-2. Als `release_version` exakt die Version aus `pubspec.yaml` eintragen.
-3. Optional Markdown-Release-Notes erfassen.
+1. `pubspec.yaml` auf die neue Version setzen.
+2. Änderung mergen.
+3. In GitHub **Actions → Android Release APK → Run workflow** öffnen.
+4. `release_version` exakt wie in `pubspec.yaml` eintragen.
+5. Optional Markdown-Release-Notes erfassen.
+6. Workflow starten und das erzeugte Release prüfen.
 
-Der Workflow prüft zuerst, dass die angegebene Version noch keinen Release-Tag besitzt, mit `pubspec.yaml` übereinstimmt, größer als der letzte `vMAJOR.MINOR.PATCH+BUILD`-Tag ist und Android weiterhin `versionName`/`versionCode` aus der Flutter-Version übernimmt. Danach werden Analyse, Tests und der Android-Release-Build mit dem stabilen Keystore ausgeführt. Die fertige APK und eine SHA-256-Prüfsumme werden als GitHub Release unter dem Tag `v<release_version>` veröffentlicht.
+## Nützliche Checks für Beiträge
+
+Vor Pull Requests bitte mindestens ausführen:
+
+```powershell
+flutter pub get
+flutter analyze
+flutter test
+```
+
+Bei Release-Änderungen zusätzlich prüfen:
+
+```powershell
+python scripts/verify_release_version.py --release-version 0.2.0+2 --previous-version 0.1.1+2
+```
 
 ## Lizenz
 
