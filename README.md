@@ -2,7 +2,7 @@
 
 Eine kleine Flutter-App als **persönliche, lokale Companion-Schicht** für KI-Campus- und Moodle-Lernseiten. Die App ersetzt oder verändert KI-Campus nicht, sondern öffnet Lernseiten in einer WebView und speichert eigene Metadaten pro URL lokal auf dem Gerät.
 
-## Motivation -  Was mich insgesamt an der KI-Campus Seite gestört hat
+## Motivation -  Was mir an der KI-Campus Seite nicht gefällt
 1. Keine Möglichkeit Bookmarks zu setzen
 2. Keine Möglichkeit Notizen anzufertigen
 3. Keine Möglichkeit falsche URLs zu korrigieren z.B. verlinkt ein exkurs auf ein englisches Video
