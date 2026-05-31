@@ -14,12 +14,12 @@ Dieses Dokument enthält die übergeordneten Regeln für Beiträge. Die konkrete
 
 ## Codequalität
 
-- Clean Code beachten.
-- Kleine Funktionen bevorzugen.
-- Keine Magic Numbers, wenn eine benannte Konstante sinnvoll ist.
-- Sprechende Variablen- und Methodennamen verwenden.
-- Dateigrößen klein halten und fachliche Funktionalität bei weiterem Wachstum auslagern.
+- Clean Code beachten: kleine, fokussierte Funktionen, klare Verantwortlichkeiten, sprechende Namen und geringe Kopplung.
+- Keine Magic Numbers oder Magic Strings, wenn eine benannte Konstante bzw. ein typisierter Wert sinnvoll ist.
+- Dateigrößen klein halten und fachliche Funktionalität bei weiterem Wachstum in Services, Stores oder Feature-Module auslagern.
 - Feature-basierte, spezialisierte Funktionalität bevorzugen.
+- Sonar-Empfehlungen als Architekturvorgabe berücksichtigen: Duplikate vermeiden, zyklische Abhängigkeiten verhindern, kognitive Komplexität niedrig halten, Dead Code entfernen und Security Smells ernst nehmen.
+- Warnungen aus statischer Analyse nicht pauschal unterdrücken; notwendige Ausnahmen müssen eng begrenzt und begründet sein.
 
 ## Aktueller Architekturstand
 
@@ -38,6 +38,7 @@ Dieses Dokument enthält die übergeordneten Regeln für Beiträge. Die konkrete
 - Neue Parser und Services mit Unit-Tests absichern.
 - Keine neuen Singleton-Pattern einführen.
 - Keine direkten SQL-Strings einführen; aktuell wird keine SQL-Datenbank verwendet.
+- SEO- und Social-Sharing-Anforderungen bei künftigen Web-, Landing-Page- oder Share-Preview-Komponenten architektonisch einplanen, ohne private Companion-Daten unbeabsichtigt zu veröffentlichen.
 
 ## Flutter-Konventionen
 
@@ -52,9 +53,18 @@ Dieses Dokument enthält die übergeordneten Regeln für Beiträge. Die konkrete
 - Ausreichende Farbkontraste beachten.
 - Dialoge, Bottom Sheets und Fehlerhinweise sollen per Screenreader verständlich sein.
 - Tastatur- und Desktop-Bedienung bei Windows/Linux mitdenken.
+- Perspektivisch soll die CI eine automatische Accessibility-Prüfung mit axe oder einem vergleichbaren Werkzeug fordern; die konkrete Prüfebene ist bei der Umsetzung zu dokumentieren.
+
+## SEO und Social Sharing
+
+- SEO-Regeln sind für alle künftigen Web-/Dokumentations-/Landing-Page-Oberflächen verbindlich mitzudenken: semantische Struktur, sprechende Titel, Meta-Beschreibungen und kanonische URLs.
+- Social Sharing soll durch aussagekräftige Share-Titel, Beschreibungen und Vorschau-Metadaten unterstützt werden, sofern die Zielplattform dies erlaubt.
+- Native Share-Flows müssen transparent machen, welche lokalen Daten exportiert oder geteilt werden.
 
 ## Tests
 
 - Neue Services benötigen Unit-Tests.
 - Neue Parser oder Formatänderungen benötigen Tests für Erfolg und Fehlerfälle.
+- Zielanforderung: mindestens 90 % Unit-Test-Abdeckung für fachliche Logik, Stores, Parser und Services.
+- Mutationstests sollen bereitgestellt werden, falls sie mit Flutter/Dart und der Projektstruktur praktikabel sind; andernfalls ist die Entscheidung nachvollziehbar zu dokumentieren.
 - Vor Pull Requests mindestens `flutter analyze` und `flutter test` ausführen.
