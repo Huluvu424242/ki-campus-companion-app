@@ -65,9 +65,13 @@ test/
 docs/
   ARCHITECTURE.md              # technische Architektur und Datenflüsse
   LICENSE_CHECK.md             # Lizenzhinweise der verwendeten Pakete
+  QUALITY_ASSURANCE.md         # Test-, axe- und Mutationstest-Strategie
+  accessibility/axe-smoke.html # app-nahe HTML-Oberfläche für axe-Smoke-Checks
 
 .github/workflows/
-  flutter.yml                  # Analyse und Tests
+  flutter.yml                  # Analyse, Tests und Coverage-Artefakt
+  accessibility.yml            # axe-Smoke-Check für die app-nahe HTML-Oberfläche
+  mutation-tests.yml           # experimentelle, manuell/zeitgesteuert startbare Mutationstests
   android-apk.yml              # einfacher APK-Build als Artifact
   android-release.yml          # signierter Release-Build mit GitHub Release
 ```
@@ -168,6 +172,10 @@ Der Workflow dekodiert den Keystore in `$RUNNER_TEMP`, prüft die Versionskonsis
 4. `release_version` exakt wie in `pubspec.yaml` eintragen.
 5. Optional Markdown-Release-Notes erfassen.
 6. Workflow starten und das erzeugte Release prüfen.
+
+## Qualitätssicherung
+
+Die QS-Strategie ist in [`docs/QUALITY_ASSURANCE.md`](docs/QUALITY_ASSURANCE.md) dokumentiert. Die reguläre Flutter-CI führt `flutter analyze` und `flutter test --coverage` aus und lädt `coverage/lcov.info` als Artefakt hoch. Zusätzlich prüft der Workflow **Accessibility axe Smoke** eine app-nahe HTML-Oberfläche mit axe. Ein experimenteller Workflow **Mutation Tests** kann manuell oder wöchentlich gestartet werden und ist wegen der aktuellen Flutter-/Tooling-Grenzen nicht blockierend.
 
 ## Nützliche Checks für Beiträge
 

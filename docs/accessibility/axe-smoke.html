@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KI-Campus Companion Accessibility Smoke Surface</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --primary: #0b57d0;
+        --primary-text: #ffffff;
+        --surface: #ffffff;
+        --surface-variant: #eef2f8;
+        --text: #172033;
+        --muted: #4f5f76;
+        --danger: #8c1d18;
+        --danger-surface: #fceeee;
+        font-family:
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: var(--surface-variant);
+        color: var(--text);
+      }
+
+      header,
+      main,
+      nav {
+        box-sizing: border-box;
+      }
+
+      header {
+        align-items: center;
+        background: var(--primary);
+        color: var(--primary-text);
+        display: flex;
+        gap: 0.75rem;
+        padding: 1rem;
+      }
+
+      header h1 {
+        flex: 1;
+        font-size: 1.25rem;
+        margin: 0;
+      }
+
+      button,
+      a.button {
+        align-items: center;
+        border: 0;
+        border-radius: 0.75rem;
+        cursor: pointer;
+        display: inline-flex;
+        font: inherit;
+        font-weight: 600;
+        min-height: 44px;
+        padding: 0.65rem 0.9rem;
+        text-decoration: none;
+      }
+
+      header button {
+        background: #d7e2ff;
+        color: #072c69;
+      }
+
+      main {
+        display: grid;
+        gap: 1rem;
+        margin: 0 auto;
+        max-width: 960px;
+        padding: 1rem;
+      }
+
+      section,
+      aside {
+        background: var(--surface);
+        border-radius: 1rem;
+        box-shadow: 0 2px 8px rgb(23 32 51 / 12%);
+        padding: 1rem;
+      }
+
+      label {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+      }
+
+      textarea,
+      input {
+        border: 1px solid #718096;
+        border-radius: 0.5rem;
+        box-sizing: border-box;
+        color: var(--text);
+        font: inherit;
+        padding: 0.75rem;
+        width: 100%;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .error-banner {
+        background: var(--danger-surface);
+        border-left: 0.4rem solid var(--danger);
+        color: var(--danger);
+      }
+
+      .bottom-nav {
+        background: var(--surface);
+        border-top: 1px solid #ccd6e3;
+        bottom: 0;
+        display: flex;
+        gap: 0.5rem;
+        justify-content: center;
+        padding: 0.75rem;
+        position: sticky;
+      }
+
+      .bottom-nav a {
+        border-radius: 0.75rem;
+        color: var(--primary);
+        min-height: 44px;
+        padding: 0.65rem 0.75rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>KI-Campus Companion</h1>
+      <button type="button" aria-label="Zurück zur vorherigen Lernseite">Zurück</button>
+      <button type="button" aria-label="Aktuelle Lernseite neu laden">Neu laden</button>
+      <button type="button" aria-label="Aktuelle URL kopieren">URL kopieren</button>
+    </header>
+
+    <main>
+      <section aria-labelledby="webview-heading">
+        <h2 id="webview-heading">Lernseite</h2>
+        <p class="muted">Eingebettete KI-Campus-WebView oder Desktop-Hinweis.</p>
+        <label for="current-url">Aktuelle URL</label>
+        <input id="current-url" type="url" value="https://ki-campus.org/" />
+      </section>
+
+      <section aria-labelledby="notes-heading">
+        <h2 id="notes-heading">Lokale Notiz</h2>
+        <label for="note">Notiz zu dieser Seite</label>
+        <textarea id="note" rows="5">Meine lokale Lernnotiz bleibt offline verfügbar.</textarea>
+        <button type="button">Speichern</button>
+      </section>
+
+      <aside class="error-banner" role="status" aria-labelledby="error-heading">
+        <h2 id="error-heading">WebView-Fehler</h2>
+        <p>Details anzeigen oder diese Fehlerregel lokal ignorieren.</p>
+        <button type="button">Details anzeigen</button>
+      </aside>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Companion-Aktionen">
+      <a href="#webview-heading">Merken</a>
+      <a href="#notes-heading">Notiz</a>
+      <a href="#error-heading">Errorfilter reset</a>
+      <a href="#webview-heading">Mehr</a>
+    </nav>
+  </body>
+</html>
