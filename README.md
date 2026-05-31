@@ -19,13 +19,13 @@ Dieses MVP zeigt, dass eine persönliche Companion-App sinnvoll sein kann, ohne 
 
 - Startseite lädt `https://ki-campus.org/` in einer WebView.
 - Top-Bar enthält Navigation (`Zurück`, `Vor`, `Neu laden`) und Ladeindikator.
-- Untere Navigation setzt pro aktueller URL:
+- Untere Navigation bietet pro aktueller URL:
   - Bookmark an/aus
   - Notiz bearbeiten (Bottom Sheet)
-  - Status `Verstanden`
   - Status `Wiederholen`
-  - Status `Erledigt`
-- Kontextmenü (`⋮`) bietet:
+  - Zurücksetzen ignorierter WebView-Fehlermeldungen (`Exportfilter reset`)
+  - Mehr-Menü
+- Kontextmenü (`Mehr`) bietet:
   - Bookmark-Übersicht (sortiert nach letzter Änderung)
   - Markdown-Export aller gespeicherten Einträge
 - Datenhaltung lokal in `SharedPreferences`.
