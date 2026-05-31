@@ -13,7 +13,11 @@ Eine kleine Flutter-App als **persönliche, lokale Companion-Schicht** für KI-C
 7. Keine Möglichkeit Fragen anderer zu beantworten
 8. Keine Möglichkeit Fehler und Erfahrungen mit anderen zu teilen
 9. In der Navigation sind die großen Überschriften ohne Ziffern, was die Orientierung erschwert. 
-   Man durchläuft dreimal Lektion 1 weil man nicht sieht ob man im Teil 1 oder Teil 2 ist. 
+   Man durchläuft dreimal Lektion 1 weil man nicht sieht ob man im Teil 1 oder Teil 2 ist.
+10. Es gibt keine Möglichkeit abgeschlossene Kurse zu betreten z.B. um :
+    - etwas nachzulesen.
+    - das Zertifikat erneut herunterzuladen oder zu teilen
+    - einen Exkurs zu wiederholen
 
 
 ## Zielbild und Grenzen
