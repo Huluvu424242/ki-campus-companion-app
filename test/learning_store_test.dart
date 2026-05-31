@@ -51,6 +51,144 @@ void main() {
     expect(bookmarks[1].url, 'https://ki-campus.org/a');
   });
 
+  test('saveEntry updates an existing URL and refreshes updatedAt', () async {
+    final store = LearningStore();
+    final oldTimestamp = DateTime.utc(2020);
+    const url = 'https://ki-campus.org/course/page-1';
+
+    await store.importMarkdown(
+      '''
+# KI-Campus Companion Export
+
+```json
+{
+  "format": "ki-campus-companion-export",
+  "version": 2,
+  "entries": [
+    {
+      "url": "https://ki-campus.org/course/page-1",
+      "title": "Alt",
+      "note": "Alt",
+      "status": "open",
+      "bookmarked": false,
+      "updatedAt": "2020-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+''',
+      clearExisting: true,
+      overwriteExisting: true,
+    );
+
+    await store.saveEntry(
+      LearningEntry(
+        url: url,
+        title: 'Neu',
+        note: 'Neue Notiz',
+        status: LearningStatus.done,
+        bookmarked: true,
+        updatedAt: oldTimestamp,
+      ),
+    );
+
+    final entries = await store.loadEntries();
+    final savedEntry = entries[url]!;
+
+    expect(entries, hasLength(1));
+    expect(savedEntry.title, 'Neu');
+    expect(savedEntry.note, 'Neue Notiz');
+    expect(savedEntry.status, LearningStatus.done);
+    expect(savedEntry.bookmarked, isTrue);
+    expect(savedEntry.updatedAt.isAfter(oldTimestamp), isTrue);
+  });
+
+  test('deleteEntry removes only the requested URL', () async {
+    final store = LearningStore();
+
+    await store.saveEntry(
+      LearningEntry(
+        url: 'https://ki-campus.org/a',
+        title: 'A',
+        note: '',
+        status: LearningStatus.open,
+        bookmarked: false,
+        updatedAt: DateTime.utc(2026, 5, 24),
+      ),
+    );
+    await store.saveEntry(
+      LearningEntry(
+        url: 'https://ki-campus.org/b',
+        title: 'B',
+        note: '',
+        status: LearningStatus.open,
+        bookmarked: false,
+        updatedAt: DateTime.utc(2026, 5, 24),
+      ),
+    );
+
+    await store.deleteEntry('https://ki-campus.org/a');
+
+    final entries = await store.loadEntries();
+    expect(entries, isNot(contains('https://ki-campus.org/a')));
+    expect(entries, contains('https://ki-campus.org/b'));
+  });
+
+  test('importMarkdown reports empty exports as format errors', () async {
+    final store = LearningStore();
+
+    await expectLater(
+      store.importMarkdown(
+        '# Leerer Export',
+        clearExisting: false,
+        overwriteExisting: false,
+      ),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('parser falls back to legacy markdown when JSON block has other format', () {
+    const markdown = '''
+```json
+{"format":"anderes-format","entries":[]}
+```
+
+## Legacy Titel
+
+- URL: <https://ki-campus.org/legacy>
+- Status: done
+- Bookmark: true
+- Aktualisiert: 2026-05-26T00:00:00.000Z
+
+Legacy Notiz
+''';
+
+    final entries = LearningExportParser.parse(markdown);
+
+    expect(entries, hasLength(1));
+    expect(entries.single.url, 'https://ki-campus.org/legacy');
+    expect(entries.single.title, 'Legacy Titel');
+    expect(entries.single.status, LearningStatus.done);
+    expect(entries.single.bookmarked, isTrue);
+    expect(entries.single.note, 'Legacy Notiz');
+  });
+
+  test('parser rejects matching JSON exports without entries list', () {
+    const markdown = '''
+```json
+{
+  "format": "ki-campus-companion-export",
+  "version": 2
+}
+```
+''';
+
+    expect(
+      () => LearningExportParser.parse(markdown),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   test('ignored web errors are persisted once and can be cleared', () async {
     final store = LearningStore();
     const rule = WebErrorIgnoreRule(
