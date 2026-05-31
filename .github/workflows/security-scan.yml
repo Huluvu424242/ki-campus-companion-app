@@ -2,9 +2,11 @@ name: Security Scan
 
 on:
   push:
+    branches:
+      - master
   schedule:
-    # GitHub schedules run on the default branch. The checkout step below
-    # explicitly scans the repository's master branch for this nightly job.
+    # GitHub schedules run on the default branch; keep this nightly scan
+    # aligned with the protected master branch.
     - cron: "17 2 * * *"
   workflow_dispatch:
 
