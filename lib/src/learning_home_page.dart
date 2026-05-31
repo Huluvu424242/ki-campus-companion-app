@@ -221,6 +221,15 @@ class _LearningHomePageState extends State<LearningHomePage> {
   }
 
   Future<void> _resetIgnoredWebErrors() async {
+    if (_ignoredWebErrorCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Keine ignorierten WebView-Fehler vorhanden.'),
+        ),
+      );
+      return;
+    }
+
     await _store.clearIgnoredWebErrors();
     await _loadIgnoredWebErrorCount();
     if (!mounted) return;
@@ -247,6 +256,37 @@ class _LearningHomePageState extends State<LearningHomePage> {
               child: const Text('Schließen'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<void> _openOverflowActions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.bookmarks_outlined),
+                title: const Text('Bookmarks öffnen'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openBookmarks();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_upload_outlined),
+                title: const Text('Markdown exportieren'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _exportMarkdown();
+                },
+              ),
+            ],
+          ),
         );
       },
     );
@@ -324,14 +364,6 @@ class _LearningHomePageState extends State<LearningHomePage> {
             onPressed: _controller?.reload,
             icon: const Icon(Icons.refresh),
           ),
-          IconButton(
-            tooltip: _ignoredWebErrorCount == 0
-                ? 'Keine ignorierten Fehlermeldungen'
-                : 'Ignorierte Fehlermeldungen zurücksetzen',
-            onPressed:
-                _ignoredWebErrorCount == 0 ? null : _resetIgnoredWebErrors,
-            icon: const _ResetIgnoredErrorsIcon(),
-          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(3),
@@ -393,14 +425,16 @@ class _LearningHomePageState extends State<LearningHomePage> {
             case 2:
               await _setStatus(LearningStatus.understood);
             case 3:
-              await _setStatus(LearningStatus.repeat);
+              await _resetIgnoredWebErrors();
             case 4:
-              await _setStatus(LearningStatus.done);
+              await _openOverflowActions();
           }
         },
         destinations: [
           NavigationDestination(
-            icon: Icon(entry.bookmarked ? Icons.bookmark : Icons.bookmark_border),
+            icon: Icon(
+              entry.bookmarked ? Icons.bookmark : Icons.bookmark_border,
+            ),
             label: 'Merken',
           ),
           const NavigationDestination(
@@ -408,37 +442,16 @@ class _LearningHomePageState extends State<LearningHomePage> {
             label: 'Notiz',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            label: 'Verstanden',
+            icon: Icon(Icons.check_box_outline_blank),
+            label: 'TODO',
           ),
           const NavigationDestination(
             icon: Icon(Icons.replay),
-            label: 'Wiederholen',
+            label: 'Errorfilter reset',
           ),
           const NavigationDestination(
-            icon: Icon(Icons.done_all),
-            label: 'Erledigt',
-          ),
-        ],
-      ),
-      floatingActionButton: PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
-        onSelected: (value) async {
-          switch (value) {
-            case 'bookmarks':
-              await _openBookmarks();
-            case 'export':
-              await _exportMarkdown();
-          }
-        },
-        itemBuilder: (context) => const [
-          PopupMenuItem(
-            value: 'bookmarks',
-            child: Text('Bookmarks öffnen'),
-          ),
-          PopupMenuItem(
-            value: 'export',
-            child: Text('Markdown exportieren'),
+            icon: Icon(Icons.more_horiz),
+            label: 'Mehr',
           ),
         ],
       ),
@@ -463,8 +476,8 @@ class _LearningHomePageState extends State<LearningHomePage> {
     return switch (status) {
       LearningStatus.open => 0,
       LearningStatus.understood => 2,
-      LearningStatus.repeat => 3,
-      LearningStatus.done => 4,
+      LearningStatus.repeat => 0,
+      LearningStatus.done => 0,
     };
   }
 }
@@ -666,75 +679,6 @@ class _IgnoreWebErrorIconPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _IgnoreWebErrorIconPainter oldDelegate) {
-    return oldDelegate.color != color;
-  }
-}
-
-class _ResetIgnoredErrorsIcon extends StatelessWidget {
-  const _ResetIgnoredErrorsIcon();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 24,
-      child: CustomPaint(
-        painter: _ResetIgnoredErrorsIconPainter(
-          IconTheme.of(context).color ?? Colors.black,
-        ),
-      ),
-    );
-  }
-}
-
-class _ResetIgnoredErrorsIconPainter extends CustomPainter {
-  const _ResetIgnoredErrorsIconPainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final fill = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.shortestSide * 0.34;
-
-    canvas.drawCircle(center, size.shortestSide * 0.07, fill);
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -0.55,
-      -5.0,
-      false,
-      stroke,
-    );
-    final arrowTip = Offset(
-      center.dx - radius * 0.88,
-      center.dy - radius * 0.4,
-    );
-    canvas.drawPath(
-      Path()
-        ..moveTo(arrowTip.dx, arrowTip.dy)
-        ..lineTo(
-          arrowTip.dx + size.width * 0.18,
-          arrowTip.dy - size.height * 0.02,
-        )
-        ..moveTo(arrowTip.dx, arrowTip.dy)
-        ..lineTo(
-          arrowTip.dx + size.width * 0.06,
-          arrowTip.dy + size.height * 0.17,
-        ),
-      stroke,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ResetIgnoredErrorsIconPainter oldDelegate) {
     return oldDelegate.color != color;
   }
 }
