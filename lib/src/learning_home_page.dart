@@ -10,6 +10,11 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'learning_entry.dart';
 import 'learning_store.dart';
 
+const _notDoneUnavailableMessage =
+    'Nicht implementiert, weil:\n'
+    'Moodle bietet keine offizielles API zum Zurücksetzen des Seitenstatus '
+    'von Erledigt auf Nicht Erledigt';
+
 class LearningHomePage extends StatefulWidget {
   const LearningHomePage({super.key});
 
@@ -128,11 +133,10 @@ class _LearningHomePageState extends State<LearningHomePage> {
     );
   }
 
-  Future<void> _setStatus(LearningStatus status) async {
-    await _saveEntry(
-      _currentEntry.copyWith(
-        title: _currentTitle,
-        status: status,
+  void _showNotDoneUnavailableMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(_notDoneUnavailableMessage),
       ),
     );
   }
@@ -423,7 +427,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
             case 1:
               await _openNoteSheet();
             case 2:
-              await _setStatus(LearningStatus.repeat);
+              _showNotDoneUnavailableMessage();
             case 3:
               await _resetIgnoredWebErrors();
             case 4:
@@ -443,7 +447,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
           ),
           const NavigationDestination(
             icon: Icon(Icons.check_box_outline_blank),
-            label: 'Wiederholen',
+            label: 'Nicht Erledigt',
           ),
           const NavigationDestination(
             icon: Icon(Icons.replay),

@@ -7,7 +7,7 @@ enum LearningStatus {
   String get label => switch (this) {
         LearningStatus.open => 'Offen',
         LearningStatus.understood => 'Verstanden',
-        LearningStatus.repeat => 'Wiederholen',
+        LearningStatus.repeat => 'Nicht Erledigt',
         LearningStatus.done => 'Erledigt',
       };
 }
