@@ -11,6 +11,37 @@ Die KI-Campus Companion App ist eine lokale Companion-Schicht um KI-Campus-/Mood
 - Android nutzt explizit `AndroidWebViewWidgetCreationParams` mit Hybrid Composition.
 - Für Plattformen ohne eingebettete WebView-Unterstützung zeigt die UI eine Fallback-Ansicht mit Hinweis, die Lernseite im Browser zu öffnen.
 
+## Architektur- und Qualitätsvorgaben
+
+Diese Vorgaben beschreiben Zielanforderungen für Refactorings und neue Features. Sie sind nicht automatisch als bereits vollständig umgesetzt zu verstehen.
+
+### Clean Code und Sonar-Leitplanken
+
+- Fachliche Logik soll in klar abgegrenzten Services, Stores oder Feature-Modulen liegen und nicht unnötig in Widgets wachsen.
+- Funktionen, Klassen und Dateien sollen klein, verständlich benannt und auf eine Verantwortung fokussiert bleiben.
+- Duplikate, zyklische Abhängigkeiten, Dead Code, hohe kognitive Komplexität und Security Smells sind nach Sonar-Empfehlungen zu vermeiden.
+- Statische-Analyse-Warnungen dürfen nur eng begrenzt und mit nachvollziehbarer Begründung unterdrückt werden.
+
+### Accessibility
+
+- UI-Komponenten müssen mit Screenreader, Tastatur/Desktop-Bedienung und Touch bedienbar geplant werden.
+- Icon-only-Aktionen benötigen Tooltips, Semantics-Labels oder sichtbare Alternativen.
+- Dialoge, Bottom Sheets, Banner und Fehlerhinweise benötigen verständliche Beschriftungen, Rollen und Fokusführung.
+- Die CI soll perspektivisch eine automatische Accessibility-Prüfung mit axe oder einem vergleichbaren Werkzeug fordern; falls Flutter-native Grenzen bestehen, ist die gewählte Prüfebene zu dokumentieren.
+
+### SEO und Social Sharing
+
+- Für künftige Web-, Landing-Page-, Dokumentations- oder Share-Preview-Flächen sind SEO-Regeln zu beachten: semantische Struktur, klare Titel, Meta-Beschreibungen und kanonische URLs.
+- Social Sharing soll aussagekräftige Titel, Beschreibungen und Vorschau-Metadaten bereitstellen, sofern die Zielplattform dies erlaubt.
+- Lokale Bookmarks und Notizen dürfen nicht unbeabsichtigt in öffentliche Vorschauen oder Share-Flows gelangen.
+
+### Qualitätssicherung
+
+- Neue fachliche Logik benötigt Unit-Tests; Parser, Persistenz und Import-/Export-Formate brauchen Erfolgs- und Fehlerfalltests.
+- Als Zielanforderung gilt mindestens 90 % Unit-Test-Abdeckung für fachliche Logik, Stores, Parser und Services.
+- Mutationstests sollen bereitgestellt werden, falls sie mit Flutter/Dart und der Projektstruktur praktikabel sind; andernfalls ist die Entscheidung zu dokumentieren.
+- Tests sollen deterministisch und offline ausführbar sein, außer sie sind ausdrücklich als Integrationstests mit Netzwerkbedarf gekennzeichnet.
+
 ## Laufzeitbausteine
 
 ```text
