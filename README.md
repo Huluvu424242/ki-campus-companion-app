@@ -74,6 +74,7 @@ docs/
   mutation-tests.yml           # experimentelle, manuell/zeitgesteuert startbare Mutationstests
   android-apk.yml              # einfacher APK-Build als Artifact
   android-release.yml          # signierter Release-Build mit GitHub Release
+  security-scan.yml            # Security-Scanner mit privatem GitHub-Security-Advisory bei Findings
 ```
 
 ## Lokal entwickeln

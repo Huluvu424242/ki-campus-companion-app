@@ -2,15 +2,16 @@ name: Security Scan
 
 on:
   push:
+    branches:
+      - master
   schedule:
-    # GitHub schedules run on the default branch. The checkout step below
-    # explicitly scans the repository's master branch for this nightly job.
+    # GitHub schedules run on the default branch; keep this nightly scan
+    # aligned with the protected master branch.
     - cron: "17 2 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
-  issues: write
   security-events: write
 
 env:
@@ -161,16 +162,23 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Create security issue with report link
+      - name: Create draft security advisory with report link
         if: always() && steps.report.outputs.findings == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Prefer a fine-grained PAT or GitHub App installation token with the
+          # Repository security advisories: write permission. The default
+          # GITHUB_TOKEN is kept as a fallback but usually cannot create draft
+          # advisories because that permission is not exposed in workflow YAML.
+          GH_TOKEN: ${{ secrets.SECURITY_ADVISORY_TOKEN || github.token }}
           ARTIFACT_URL: ${{ steps.upload-report.outputs.artifact-url }}
         run: |
           set -euo pipefail
-          issue_body="${REPORT_DIR}/security-issue.md"
-          cat "${REPORT_DIR}/security-report.md" > "$issue_body"
-          cat >> "$issue_body" <<EOF
+          advisory_body="${REPORT_DIR}/security-advisory.md"
+          advisory_payload="${REPORT_DIR}/security-advisory.json"
+          advisory_summary="Automated security scan findings in ${GITHUB_REF_NAME} (${GITHUB_RUN_ID})"
+
+          cat "${REPORT_DIR}/security-report.md" > "$advisory_body"
+          cat >> "$advisory_body" <<EOF
 
           ## Attached report artifact
 
@@ -181,6 +189,31 @@ jobs:
           rerun the workflow to regenerate the report.
           EOF
 
-          gh issue create \
-            --title "Automated security scan findings in ${GITHUB_REF_NAME} (${GITHUB_RUN_ID})" \
-            --body-file "$issue_body"
+          jq -n \
+            --arg summary "$advisory_summary" \
+            --rawfile description "$advisory_body" \
+            --arg package_name "$GITHUB_REPOSITORY" \
+            '{
+              summary: $summary,
+              description: $description,
+              severity: "medium",
+              cve_id: null,
+              vulnerabilities: [
+                {
+                  package: {
+                    ecosystem: "other",
+                    name: $package_name
+                  },
+                  vulnerable_version_range: null,
+                  patched_versions: null,
+                  vulnerable_functions: null
+                }
+              ]
+            }' > "$advisory_payload"
+
+          gh api \
+            --method POST \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/security-advisories" \
+            --input "$advisory_payload"
