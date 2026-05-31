@@ -225,7 +225,7 @@ class LearningExportParser {
 
   static List<LearningEntry> _parseLegacyMarkdownExport(String markdown) {
     final sections = RegExp(
-      r'^##\s+(.+?)\s*$([\s\S]*?)(?=^##\s+|\z)',
+      r'^##\s+(.+?)\s*$([\s\S]*?)(?=^##\s+|(?![\s\S]))',
       multiLine: true,
     ).allMatches(markdown);
 
