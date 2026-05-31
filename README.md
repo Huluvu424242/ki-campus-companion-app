@@ -23,7 +23,7 @@ Dieses MVP zeigt, dass eine persönliche Companion-App sinnvoll sein kann, ohne 
   - Bookmark an/aus
   - Notiz bearbeiten (Bottom Sheet)
   - Status `Wiederholen`
-  - Zurücksetzen ignorierter WebView-Fehlermeldungen (`Exportfilter reset`)
+  - Zurücksetzen ignorierter WebView-Fehlermeldungen (`Errorfilter reset`)
   - Mehr-Menü
 - Kontextmenü (`Mehr`) bietet:
   - Bookmark-Übersicht (sortiert nach letzter Änderung)
