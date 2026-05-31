@@ -447,7 +447,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
           ),
           const NavigationDestination(
             icon: Icon(Icons.replay),
-            label: 'Exportfilter reset',
+            label: 'Errorfilter reset',
           ),
           const NavigationDestination(
             icon: Icon(Icons.more_horiz),
