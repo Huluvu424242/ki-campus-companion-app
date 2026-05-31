@@ -22,7 +22,7 @@ Dieses MVP zeigt, dass eine persönliche Companion-App sinnvoll sein kann, ohne 
 - Untere Navigation bietet pro aktueller URL:
   - Bookmark an/aus
   - Notiz bearbeiten (Bottom Sheet)
-  - Status `Wiederholen`
+  - Button `Nicht Erledigt` mit Hinweis, dass Moodle kein offizielles API zum Zurücksetzen des Erledigt-Status bietet
   - Zurücksetzen ignorierter WebView-Fehlermeldungen (`Errorfilter reset`)
   - Mehr-Menü
 - Kontextmenü (`Mehr`) bietet:

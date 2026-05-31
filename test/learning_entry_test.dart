@@ -15,7 +15,7 @@ void main() {
     final markdown = entry.toMarkdown();
 
     expect(markdown, contains('KI-Campus'));
-    expect(markdown, contains('Wiederholen'));
+    expect(markdown, contains('Nicht Erledigt'));
     expect(markdown, contains('Meine Notiz'));
   });
 }
