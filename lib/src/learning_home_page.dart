@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -210,6 +211,84 @@ class _LearningHomePageState extends State<LearningHomePage> {
     );
   }
 
+  Future<void> _importMarkdown() async {
+    final clearExisting = await _confirmImportOption(
+      title: 'Vor Import löschen?',
+      message:
+          'Sollen vor dem Import alle bestehenden Notizen und Bookmarks gelöscht werden?',
+    );
+    if (clearExisting == null || !mounted) return;
+
+    final overwriteExisting = await _confirmImportOption(
+      title: 'Bestehende Daten überschreiben?',
+      message:
+          'Sollen bereits bestehende identische Notizen und Bookmarks anhand ihrer URL überschrieben werden?',
+    );
+    if (overwriteExisting == null || !mounted) return;
+
+    final pickedFile = await FilePicker.platform.pickFiles(
+      dialogTitle: 'KI-Campus Companion Export auswählen',
+      type: FileType.custom,
+      allowedExtensions: ['md', 'markdown', 'txt'],
+    );
+    final filePath = pickedFile?.files.single.path;
+    if (filePath == null) return;
+
+    try {
+      final markdown = await File(filePath).readAsString();
+      final result = await _store.importMarkdown(
+        markdown,
+        clearExisting: clearExisting,
+        overwriteExisting: overwriteExisting,
+      );
+      await _loadEntries();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Import abgeschlossen: ${result.imported} importiert, '
+            '${result.overwritten} überschrieben, ${result.skipped} übersprungen.',
+          ),
+        ),
+      );
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import nicht möglich: ${error.message}')),
+      );
+    } on Object catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Import fehlgeschlagen: $error')),
+      );
+    }
+  }
+
+  Future<bool?> _confirmImportOption({
+    required String title,
+    required String message,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Nein'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Ja'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _ignoreWebError(_WebViewErrorDetails error) async {
     await _store.saveIgnoredWebError(error.ignoreRule);
     await _loadIgnoredWebErrorCount();
@@ -279,6 +358,14 @@ class _LearningHomePageState extends State<LearningHomePage> {
                 onTap: () {
                   Navigator.pop(context);
                   _openBookmarks();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.file_download_outlined),
+                title: const Text('Importieren'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _importMarkdown();
                 },
               ),
               ListTile(
