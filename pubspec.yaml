@@ -2,7 +2,7 @@ name: ki_campus_companion
 description: MVP Flutter companion app for KI-Campus learning notes, bookmarks and local progress markers.
 publish_to: "none"
 
-version: 0.1.1+2
+version: 0.1.1+3
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
