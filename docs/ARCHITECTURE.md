@@ -49,7 +49,12 @@ main.dart
   └─ KiCampusCompanionApp
       └─ LearningHomePage
           ├─ WebViewController / WebViewWidget
+          ├─ LearningCompanionNavigationBar
+          ├─ BookmarksSheet
+          ├─ WebViewErrorBanner / WebViewErrorDetails
           ├─ LearningStore
+          │   ├─ LearningExportParser / LearningExportFormat
+          │   └─ WebErrorIgnoreRule
           └─ LearningEntry
 ```
 
@@ -61,18 +66,19 @@ main.dart
 
 ### `LearningHomePage`
 
-`LearningHomePage` ist aktuell die UI-Orchestrierung des MVP:
+`LearningHomePage` ist die UI-Orchestrierung des MVP:
 
 - initialisiert die WebView mit `https://ki-campus.org/`
 - aktiviert JavaScript für Moodle/KI-Campus-Seiten
 - verwaltet aktuellen URL- und Titel-Kontext
-- verarbeitet WebView-Navigation, Ladefortschritt und Fehler
+- verarbeitet WebView-Navigation und Ladefortschritt
 - bietet App-Bar-Aktionen für Zurück, Vor, Neu laden, URL kopieren und URL bearbeiten
-- bietet Bottom-Navigation für Bookmark, Notiz, Nicht-Erledigt-Hinweis, Fehlerfilter-Reset und Mehr-Menü
 - öffnet Bottom Sheets für Notizen, Bookmarks und Mehr-Aktionen
 - ruft für Persistenz, Export, Import und Fehlerfilter den `LearningStore` auf
 
-Die Klasse enthält noch UI-nahe Ablaufsteuerung. Business-Logik, die Persistenz oder Import-/Export-Parsing betrifft, liegt bereits im Store bzw. Parser.
+Spezialisierte Widgets und Hilfstypen halten die Home-Page schlanker: `LearningCompanionNavigationBar` enthält die Bottom-Navigation, `BookmarksSheet` kapselt die Bookmark-Liste, `UnsupportedWebViewPlaceholder` die Plattform-Fallback-Ansicht und die WebView-Fehlerdarstellung liegt in `WebViewErrorBanner`/`WebViewErrorDetails`.
+
+Die Klasse enthält noch UI-nahe Ablaufsteuerung. Business-Logik, die Persistenz oder Import-/Export-Parsing betrifft, liegt im Store bzw. Parser.
 
 ### `LearningEntry`
 
@@ -98,13 +104,13 @@ Aktueller UI-Stand: Die Bottom-Navigation setzt nicht alle Statuswerte aktiv. De
 
 ### `LearningStore`
 
-`LearningStore` kapselt die lokale Persistenz und dateibasierten Austauschformate:
+`LearningStore` kapselt die lokale Persistenz und delegiert dateibasierte Austauschformate an spezialisierte Import-/Export-Typen:
 
 - lädt und speichert alle `LearningEntry`-Objekte in `SharedPreferences` unter `learning_entries_v1`
 - speichert Änderungen mit aktualisiertem `updatedAt`
 - liefert Bookmarks sortiert nach `updatedAt` absteigend
-- exportiert alle Einträge als Markdown
-- importiert aktuelle JSON-basierte Markdown-Exporte und ältere reine Markdown-Abschnitte
+- exportiert alle Einträge als Markdown mit `LearningExportFormat` als Formatkennung
+- importiert über `LearningExportParser` aktuelle JSON-basierte Markdown-Exporte und ältere reine Markdown-Abschnitte
 - speichert ignorierte WebView-Fehlerregeln unter `ignored_web_errors_v1`
 
 ## Persistenz
@@ -138,7 +144,7 @@ Der Parser bevorzugt den JSON-Block. Wenn kein passender JSON-Block vorhanden is
 
 ## WebView-Fehlerbehandlung
 
-WebView-Fehler werden in `_WebViewErrorDetails` normalisiert:
+WebView-Fehler werden in `WebViewErrorDetails` normalisiert:
 
 - kurze Zusammenfassung für den Banner
 - vollständige Details mit URL, Fehlercode, Fehlertyp, Haupt-Frame-Info, Beschreibung und Stacktrace
@@ -174,6 +180,8 @@ Der Android-Release-Workflow nutzt einen stabilen Keystore aus GitHub-Actions-Se
 `android/app/build.gradle.kts` liest diese Werte aus Gradle-Properties oder Umgebungsvariablen. Wenn alle Werte vorhanden sind, wird die Release-Signing-Config verwendet. Lokale Release-Builds fallen ohne diese Werte auf Debug-Signing zurück; der GitHub-Release-Workflow erzwingt die Secrets vor dem Build.
 
 ## Tests
+
+Die Unit-Tests importieren Parser und Fehlerregel direkt aus ihren spezialisierten Dateien, damit die Store-Tests weiterhin die ausgelagerten Import-/Export- und Fehlerfilter-Bausteine abdecken.
 
 Aktuell existieren Tests für:
 

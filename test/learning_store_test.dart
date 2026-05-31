@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ki_campus_companion/src/learning_entry.dart';
+import 'package:ki_campus_companion/src/learning_export_parser.dart';
 import 'package:ki_campus_companion/src/learning_store.dart';
+import 'package:ki_campus_companion/src/web_error_ignore_rule.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
