@@ -44,6 +44,7 @@ class WebViewErrorBanner extends StatelessWidget {
                 IconButton(
                   tooltip: 'Gleichartige Fehlermeldungen dauerhaft ignorieren',
                   visualDensity: VisualDensity.compact,
+                  iconSize: 30,
                   onPressed: onIgnored,
                   icon: const IgnoreWebErrorIcon(),
                 ),
