@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "0 5 * * 1"
 
+permissions:
+  contents: read
+
 jobs:
   mutation-tests:
     name: Run experimental mutation tests
