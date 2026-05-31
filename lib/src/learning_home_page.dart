@@ -423,7 +423,7 @@ class _LearningHomePageState extends State<LearningHomePage> {
             case 1:
               await _openNoteSheet();
             case 2:
-              await _setStatus(LearningStatus.understood);
+              await _setStatus(LearningStatus.repeat);
             case 3:
               await _resetIgnoredWebErrors();
             case 4:
@@ -443,11 +443,11 @@ class _LearningHomePageState extends State<LearningHomePage> {
           ),
           const NavigationDestination(
             icon: Icon(Icons.check_box_outline_blank),
-            label: 'TODO',
+            label: 'Wiederholen',
           ),
           const NavigationDestination(
             icon: Icon(Icons.replay),
-            label: 'Errorfilter reset',
+            label: 'Exportfilter reset',
           ),
           const NavigationDestination(
             icon: Icon(Icons.more_horiz),
@@ -475,8 +475,8 @@ class _LearningHomePageState extends State<LearningHomePage> {
   int _statusIndex(LearningStatus status) {
     return switch (status) {
       LearningStatus.open => 0,
-      LearningStatus.understood => 2,
-      LearningStatus.repeat => 0,
+      LearningStatus.understood => 0,
+      LearningStatus.repeat => 2,
       LearningStatus.done => 0,
     };
   }
