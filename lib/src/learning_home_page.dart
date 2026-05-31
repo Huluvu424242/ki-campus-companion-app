@@ -10,6 +10,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import 'bookmarks_sheet.dart';
+import 'import_option_dialog.dart';
 import 'learning_companion_navigation_bar.dart';
 import 'learning_entry.dart';
 import 'learning_store.dart';
@@ -281,6 +282,14 @@ class _LearningHomePageState extends State<LearningHomePage> {
   }
 
   Future<void> _importMarkdown() async {
+    final pickedFile = await FilePicker.platform.pickFiles(
+      dialogTitle: 'KI-Campus Companion Export auswählen',
+      type: FileType.custom,
+      allowedExtensions: ['md', 'markdown', 'txt'],
+    );
+    final filePath = pickedFile?.files.single.path;
+    if (filePath == null || !mounted) return;
+
     final clearExisting = await _confirmImportOption(
       title: 'Vor Import löschen?',
       message:
@@ -294,14 +303,6 @@ class _LearningHomePageState extends State<LearningHomePage> {
           'Sollen bereits bestehende identische Notizen und Bookmarks anhand ihrer URL überschrieben werden?',
     );
     if (overwriteExisting == null || !mounted) return;
-
-    final pickedFile = await FilePicker.platform.pickFiles(
-      dialogTitle: 'KI-Campus Companion Export auswählen',
-      type: FileType.custom,
-      allowedExtensions: ['md', 'markdown', 'txt'],
-    );
-    final filePath = pickedFile?.files.single.path;
-    if (filePath == null) return;
 
     try {
       final markdown = await File(filePath).readAsString();
@@ -339,22 +340,10 @@ class _LearningHomePageState extends State<LearningHomePage> {
   }) {
     return showDialog<bool>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Nein'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Ja'),
-            ),
-          ],
-        );
-      },
+      builder: (context) => ImportOptionDialog(
+        title: title,
+        message: message,
+      ),
     );
   }
 
