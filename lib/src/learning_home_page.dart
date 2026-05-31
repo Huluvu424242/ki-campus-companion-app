@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -140,6 +141,69 @@ class _LearningHomePageState extends State<LearningHomePage> {
         content: Text(_notDoneUnavailableMessage),
       ),
     );
+  }
+
+  Future<void> _copyCurrentUrl() async {
+    await Clipboard.setData(ClipboardData(text: _currentUrl));
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Aktuelle URL wurde in die Zwischenablage kopiert.'),
+      ),
+    );
+  }
+
+  Future<void> _openUrlEditDialog() async {
+    final urlController = TextEditingController(text: _currentUrl);
+
+    final editedUrl = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          icon: const Icon(Icons.edit_square),
+          title: const Text('URL bearbeiten'),
+          content: TextField(
+            controller: urlController,
+            autofocus: true,
+            keyboardType: TextInputType.url,
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              labelText: 'Aktuelle URL',
+              hintText: 'https://ki-campus.org/...',
+            ),
+            onSubmitted: (value) => Navigator.pop(context, value),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, urlController.text),
+              child: const Text('Übernehmen'),
+            ),
+          ],
+        );
+      },
+    );
+
+    urlController.dispose();
+    if (editedUrl == null || !mounted) return;
+
+    final normalizedUrl = editedUrl.trim();
+    final uri = Uri.tryParse(normalizedUrl);
+    if (normalizedUrl.isEmpty || uri == null || !uri.hasScheme) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bitte eine vollständige URL mit Protokoll eingeben.'),
+        ),
+      );
+      return;
+    }
+
+    await _controller?.loadRequest(uri);
   }
 
   Future<void> _openNoteSheet() async {
@@ -454,6 +518,16 @@ class _LearningHomePageState extends State<LearningHomePage> {
             tooltip: 'Neu laden',
             onPressed: _controller?.reload,
             icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            tooltip: 'Aktuelle URL kopieren',
+            onPressed: _copyCurrentUrl,
+            icon: const Icon(Icons.copy),
+          ),
+          IconButton(
+            tooltip: 'Aktuelle URL bearbeiten',
+            onPressed: _controller == null ? null : _openUrlEditDialog,
+            icon: const Icon(Icons.edit_square),
           ),
         ],
         bottom: PreferredSize(
