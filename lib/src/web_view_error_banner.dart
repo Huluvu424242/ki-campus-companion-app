@@ -5,6 +5,7 @@ import 'web_view_error_details.dart';
 
 class WebViewErrorBanner extends StatelessWidget {
   const WebViewErrorBanner({
+    super.key,
     required this.error,
     required this.onDismissed,
     required this.onIgnored,

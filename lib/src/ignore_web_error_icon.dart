@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class IgnoreWebErrorIcon extends StatelessWidget {
-  const IgnoreWebErrorIcon();
+  const IgnoreWebErrorIcon({super.key});
 
   @override
   Widget build(BuildContext context) {
