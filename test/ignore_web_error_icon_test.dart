@@ -17,12 +17,23 @@ void main() {
         ),
       );
 
-      final sizedBox = tester.widget<SizedBox>(find.byType(SizedBox));
+      final iconFinder = find.byType(IgnoreWebErrorIcon);
+      expect(iconFinder, findsOneWidget);
+
+      final iconSizedBoxFinder = find.descendant(
+        of: iconFinder,
+        matching: find.byType(SizedBox),
+      );
+      final sizedBox = tester.widget<SizedBox>(iconSizedBoxFinder);
       expect(sizedBox.width, 30);
       expect(sizedBox.height, 30);
       expect(psstIconAssetPath, 'assets/icons/Psst.svg');
 
-      final customPaint = tester.widget<CustomPaint>(find.byType(CustomPaint));
+      final iconPaintFinder = find.descendant(
+        of: iconFinder,
+        matching: find.byType(CustomPaint),
+      );
+      final customPaint = tester.widget<CustomPaint>(iconPaintFinder);
       final painter = customPaint.painter;
       expect(painter, isA<IgnoreWebErrorIconPainter>());
       final iconPainter = painter as IgnoreWebErrorIconPainter;
