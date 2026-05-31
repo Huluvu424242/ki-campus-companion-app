@@ -1,0 +1,186 @@
+name: Security Scan
+
+on:
+  push:
+  schedule:
+    # GitHub schedules run on the default branch. The checkout step below
+    # explicitly scans the repository's master branch for this nightly job.
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
+env:
+  REPORT_DIR: security-reports
+
+concurrency:
+  group: security-scan-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Scan application code and dependencies
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout scanned ref
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'schedule' && 'master' || github.ref }}
+
+      - name: Prepare report directory
+        run: |
+          set -euo pipefail
+          mkdir -p "${REPORT_DIR}"
+          cat > "${REPORT_DIR}/README.md" <<'EOF'
+          # Security scan report
+
+          This artifact contains the raw scanner reports from the automated
+          security workflow. The workflow scans the repository for malicious
+          code indicators, backdoor patterns, supply-chain vulnerabilities,
+          secrets, dependency vulnerabilities, and common security issues.
+          EOF
+
+      - name: Install Semgrep
+        run: python3 -m pip install --user --upgrade semgrep
+
+      - name: Run Semgrep code security scan
+        id: semgrep
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          "${HOME}/.local/bin/semgrep" scan \
+            --metrics=off \
+            --config=p/default \
+            --config=p/security-audit \
+            --config=p/secrets \
+            --sarif \
+            --output="${REPORT_DIR}/semgrep.sarif" \
+            .
+
+      - name: Run Trivy filesystem supply-chain scan
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          format: sarif
+          output: ${{ env.REPORT_DIR }}/trivy.sarif
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+
+      - name: Upload Trivy SARIF to code scanning
+        if: always() && hashFiles('security-reports/trivy.sarif') != ''
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ env.REPORT_DIR }}/trivy.sarif
+          category: trivy-security-scan
+
+      - name: Run OSV dependency vulnerability scan
+        id: osv
+        continue-on-error: true
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
+        with:
+          scan-args: |-
+            --recursive
+            --format=json
+            --output=${{ env.REPORT_DIR }}/osv-scanner.json
+            .
+
+      - name: Run OpenSSF Scorecard supply-chain posture scan
+        id: scorecard
+        continue-on-error: true
+        uses: ossf/scorecard-action@v2.4.3
+        with:
+          results_file: ${{ env.REPORT_DIR }}/scorecard.sarif
+          results_format: sarif
+          publish_results: false
+
+      - name: Build consolidated security report
+        id: report
+        if: always()
+        env:
+          SEMGREP_OUTCOME: ${{ steps.semgrep.outcome }}
+          TRIVY_OUTCOME: ${{ steps.trivy.outcome }}
+          OSV_OUTCOME: ${{ steps.osv.outcome }}
+          SCORECARD_OUTCOME: ${{ steps.scorecard.outcome }}
+        run: |
+          set -euo pipefail
+
+          findings=false
+          for outcome in "$SEMGREP_OUTCOME" "$TRIVY_OUTCOME" "$OSV_OUTCOME" "$SCORECARD_OUTCOME"; do
+            if [ "$outcome" != "success" ] && [ "$outcome" != "skipped" ]; then
+              findings=true
+            fi
+          done
+
+          cat > "${REPORT_DIR}/security-report.md" <<EOF
+          # Automated security report
+
+          - Repository: ${GITHUB_REPOSITORY}
+          - Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - Event: ${GITHUB_EVENT_NAME}
+          - Ref: ${GITHUB_REF}
+          - Commit: ${GITHUB_SHA}
+          - Findings detected: ${findings}
+
+          ## Scanner outcomes
+
+          | Scanner | Purpose | Outcome |
+          | --- | --- | --- |
+          | Semgrep | Code security, malicious-code and backdoor patterns, secrets | ${SEMGREP_OUTCOME} |
+          | Trivy | Dependency vulnerabilities, misconfigurations, embedded secrets | ${TRIVY_OUTCOME} |
+          | OSV Scanner | Open Source Vulnerabilities in lockfiles and manifests | ${OSV_OUTCOME} |
+          | OpenSSF Scorecard | Supply-chain posture, risky workflow and repository settings | ${SCORECARD_OUTCOME} |
+
+          ## Raw report files
+
+          The workflow artifact contains the raw SARIF/JSON reports produced by
+          the scanners so the finding details can be reviewed without modifying
+          application data or requiring network access from the app.
+          EOF
+
+          echo "findings=${findings}" >> "$GITHUB_OUTPUT"
+          echo "SECURITY_FINDINGS=${findings}" >> "$GITHUB_ENV"
+
+      - name: Upload security report artifact
+        id: upload-report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report-${{ github.run_id }}
+          path: ${{ env.REPORT_DIR }}/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create security issue with report link
+        if: always() && steps.report.outputs.findings == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_URL: ${{ steps.upload-report.outputs.artifact-url }}
+        run: |
+          set -euo pipefail
+          issue_body="${REPORT_DIR}/security-issue.md"
+          cat "${REPORT_DIR}/security-report.md" > "$issue_body"
+          cat >> "$issue_body" <<EOF
+
+          ## Attached report artifact
+
+          Download the full scanner report artifact from this workflow run:
+          ${ARTIFACT_URL}
+
+          The artifact is retained for 30 days. If the artifact has expired,
+          rerun the workflow to regenerate the report.
+          EOF
+
+          gh issue create \
+            --title "Automated security scan findings in ${GITHUB_REF_NAME} (${GITHUB_RUN_ID})" \
+            --body-file "$issue_body"
