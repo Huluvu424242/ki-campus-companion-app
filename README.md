@@ -12,7 +12,7 @@ Eine kleine Flutter-App als **persönliche, lokale Companion-Schicht** für KI-C
 6. Keine Möglichkeit Fragen an Dozenten oder andere Mitlernende zu stellen
 7. Keine Möglichkeit Fragen anderer zu beantworten
 8. Keine Möglichkeit Fehler und Erfahrungen mit anderen zu teilen
-9. In der Navigation sind die großen Überschriften ohne Ziffern, was die Orientierung erschwert. 
+9. Beim Kurs Einführugn in die KI: In der Navigation sind die großen Überschriften ohne Ziffern, was die Orientierung erschwert. 
    Man durchläuft dreimal Lektion 1 weil man nicht sieht ob man im Teil 1 oder Teil 2 ist. 
 
 
